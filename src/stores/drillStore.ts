@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { Drill, Frame, Horse } from '../types';
 import { createDrill, createFrame } from '../types';
 import { generateId } from '../utils/uuid';
@@ -30,9 +31,11 @@ interface DrillStore {
   getCurrentFrame: () => Frame | null;
 }
 
-export const useDrillStore = create<DrillStore>((set, get) => ({
-  drill: null,
-  currentFrameIndex: 0,
+export const useDrillStore = create<DrillStore>()(
+  persist(
+    (set, get) => ({
+      drill: null,
+      currentFrameIndex: 0,
 
   setDrill: (drill, skipHistoryClear = false, preserveFrameIndex = false) => {
     let currentIndex = 0;
@@ -63,7 +66,7 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
   },
 
   addFrame: () => {
-    const { drill, currentFrameIndex } = get();
+    const { drill } = get();
     if (!drill) return;
 
     const lastFrame = drill.frames[drill.frames.length - 1];
@@ -358,9 +361,7 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
       description: `Align ${horseIds.length} horses horizontally`,
         undo: () => {
           const { setDrill } = get();
-          // Create a fresh deep copy when restoring to ensure no mutation
-          const restoredPrevious = JSON.parse(JSON.stringify(previousDrillCopy));
-          setDrill(restoredPrevious, true, true); // Skip history clear, preserve frame index
+          setDrill(previousDrill, true, true); // Skip history clear, preserve frame index
         },
         redo: () => {
           const { setDrill } = get();
@@ -414,9 +415,7 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
       description: `Align ${horseIds.length} horses vertically`,
         undo: () => {
           const { setDrill } = get();
-          // Create a fresh deep copy when restoring to ensure no mutation
-          const restoredPrevious = JSON.parse(JSON.stringify(previousDrillCopy));
-          setDrill(restoredPrevious, true, true); // Skip history clear, preserve frame index
+          setDrill(previousDrill, true, true); // Skip history clear, preserve frame index
         },
         redo: () => {
           const { setDrill } = get();
@@ -489,7 +488,6 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
 
     // The first and last horses should be at p1 and p2 (the two most separated)
     // Distribute all horses evenly along the line
-    const spacing = lineLength / (horseProjections.length - 1);
     const newPositions = new Map<string, { x: number; y: number }>();
 
     horseProjections.forEach(({ horse }, index) => {
@@ -528,9 +526,7 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
       description: `Distribute ${horseIds.length} horses evenly`,
         undo: () => {
           const { setDrill } = get();
-          // Create a fresh deep copy when restoring to ensure no mutation
-          const restoredPrevious = JSON.parse(JSON.stringify(previousDrillCopy));
-          setDrill(restoredPrevious, true, true); // Skip history clear, preserve frame index
+          setDrill(previousDrill, true, true); // Skip history clear, preserve frame index
         },
         redo: () => {
           const { setDrill } = get();
@@ -548,5 +544,21 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
     }
     return drill.frames[currentFrameIndex];
   },
-}));
+    }),
+    {
+      name: 'drill-storage',
+      // Only persist drill and currentFrameIndex, not actions
+      partialize: (state) => ({
+        drill: state.drill,
+        currentFrameIndex: state.currentFrameIndex,
+      }),
+      // When loading from storage, clear history since undo/redo functions won't be valid
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          useHistoryStore.getState().clear();
+        }
+      },
+    }
+  )
+);
 
