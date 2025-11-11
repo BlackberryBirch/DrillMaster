@@ -1,0 +1,134 @@
+import { useState, useCallback, useEffect } from 'react';
+import { Stage, Layer } from 'react-konva';
+import ArenaCanvas from './ArenaCanvas';
+import EditorToolbar from './EditorToolbar';
+import { useEditorStore } from '../../stores/editorStore';
+import { useThemeStore } from '../../stores/themeStore';
+import { calculateArenaDimensions } from '../../utils/arena';
+
+export default function Editor() {
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
+  const [parentElement, setParentElement] = useState<HTMLDivElement | null>(null);
+  const zoom = useEditorStore((state) => state.zoom);
+  const pan = useEditorStore((state) => state.pan);
+
+  // Callback ref to get the parent container element (the flex container)
+  const parentRef = useCallback((node: HTMLDivElement | null) => {
+    setParentElement(node);
+  }, []);
+
+  // Callback ref to get the canvas container element when it mounts
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainerElement(node);
+  }, []);
+
+  useEffect(() => {
+    // Use the parent element (flex container) if available, otherwise fall back to containerElement
+    const elementToObserve = parentElement || containerElement;
+    if (!elementToObserve) return;
+
+    const updateDimensions = () => {
+      // Use requestAnimationFrame to ensure we get dimensions after DOM updates
+      requestAnimationFrame(() => {
+        // Measure the actual canvas container, not the parent
+        const rect = containerElement?.getBoundingClientRect();
+        if (!rect) return;
+        
+        const { width, height } = rect;
+        // Update dimensions if valid (greater than 0)
+        // This handles both increases and decreases in window size
+        if (width > 0 && height > 0) {
+          setDimensions((prev) => {
+            // Use Math.round to avoid floating point precision issues
+            const roundedWidth = Math.round(width);
+            const roundedHeight = Math.round(height);
+            // Only update if dimensions actually changed to avoid unnecessary re-renders
+            if (prev.width !== roundedWidth || prev.height !== roundedHeight) {
+              return { width: roundedWidth, height: roundedHeight };
+            }
+            return prev;
+          });
+        }
+      });
+    };
+
+    // Initial measurement
+    if (containerElement) {
+      updateDimensions();
+    }
+
+    // Use ResizeObserver to watch both the parent flex container and the canvas container
+    // This ensures we detect when the flex layout changes (e.g., when window resizes)
+    const resizeObserver = new ResizeObserver((entries) => {
+      // Use requestAnimationFrame to ensure we get dimensions after DOM updates
+      // This is especially important when the window decreases in size
+      requestAnimationFrame(() => {
+        // Always measure the actual canvas container
+        if (!containerElement) return;
+        
+        const rect = containerElement.getBoundingClientRect();
+        const { width, height } = rect;
+
+        // Update dimensions if valid (handles both increases and decreases)
+        if (width > 0 && height > 0) {
+          setDimensions((prev) => {
+            // Use Math.round to avoid floating point precision issues
+            const roundedWidth = Math.round(width);
+            const roundedHeight = Math.round(height);
+            // Only update if dimensions actually changed
+            if (prev.width !== roundedWidth || prev.height !== roundedHeight) {
+              return { width: roundedWidth, height: roundedHeight };
+            }
+            return prev;
+          });
+        }
+      });
+    });
+
+    // Observe both the parent flex container and the canvas container
+    // This ensures we catch all resize scenarios
+    if (parentElement) {
+      resizeObserver.observe(parentElement);
+    }
+    if (containerElement) {
+      resizeObserver.observe(containerElement);
+    }
+
+    // Also listen to window resize as a fallback
+    window.addEventListener('resize', updateDimensions);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateDimensions);
+    };
+  }, [containerElement, parentElement]);
+
+  const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height - 60);
+  const theme = useThemeStore((state) => state.theme);
+
+  return (
+    <div ref={parentRef} className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+      <EditorToolbar />
+      <div ref={containerRef} className="flex-1 overflow-hidden relative w-full h-full">
+        <Stage
+          width={dimensions.width}
+          height={dimensions.height}
+          style={{ background: theme === 'dark' ? '#2D2D2D' : '#F5F5DC' }}
+        >
+          <Layer>
+            <ArenaCanvas
+              width={arenaDims.width}
+              height={arenaDims.height}
+              offsetX={arenaDims.offsetX}
+              offsetY={arenaDims.offsetY}
+              zoom={zoom}
+              pan={pan}
+            />
+          </Layer>
+        </Stage>
+      </div>
+    </div>
+  );
+}
+
