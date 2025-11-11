@@ -9,6 +9,8 @@ interface HorseRendererProps {
   isSelected: boolean;
   showArrow: boolean;
   onDrag: (x: number, y: number) => void;
+  onDragStart?: () => void;
+  onDragMove?: (x: number, y: number) => void;
   onClick: (e: any) => void;
   draggable?: boolean;
   canvasWidth: number;
@@ -22,11 +24,27 @@ export default function HorseRenderer({
   isSelected,
   showArrow,
   onDrag,
+  onDragStart,
+  onDragMove,
   onClick,
   draggable = true,
   canvasWidth,
   canvasHeight,
 }: HorseRendererProps) {
+  const handleDragStart = () => {
+    if (onDragStart) {
+      onDragStart();
+    }
+  };
+
+  const handleDragMove = (e: any) => {
+    // During drag, update positions in real-time
+    const node = e.target;
+    if (onDragMove) {
+      onDragMove(node.x(), node.y());
+    }
+  };
+
   const handleDragEnd = (e: any) => {
     // When dragging ends, Konva has already updated the node's position
     // e.target.x() and e.target.y() give the position relative to the parent Group
@@ -64,15 +82,17 @@ export default function HorseRenderer({
   const arrowEndY = 0;
 
   return (
-    <Group
-      x={x}
-      y={y}
-      rotation={rotationDegrees}
-      draggable={draggable}
-      onDragEnd={handleDragEnd}
-      onClick={onClick}
-      onTap={onClick}
-    >
+          <Group
+            x={x}
+            y={y}
+            rotation={rotationDegrees}
+            draggable={draggable}
+            onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
+            onDragEnd={handleDragEnd}
+            onClick={onClick}
+            onTap={onClick}
+          >
       {/* Horse Body - Main ellipse */}
       <Ellipse
         x={0}

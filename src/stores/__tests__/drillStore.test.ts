@@ -191,6 +191,111 @@ describe('drillStore', () => {
     });
   });
 
+  describe('alignment and distribution', () => {
+    beforeEach(() => {
+      useDrillStore.getState().createNewDrill('Test Drill');
+    });
+
+    it('should align horses horizontally', () => {
+      const frame = useDrillStore.getState().getCurrentFrame();
+      if (!frame) return;
+
+      const horse1 = createHorse(generateId(), 1, { x: 0.2, y: 0.3 });
+      const horse2 = createHorse(generateId(), 2, { x: 0.5, y: 0.7 });
+      const horse3 = createHorse(generateId(), 3, { x: 0.8, y: 0.4 });
+
+      useDrillStore.getState().addHorseToFrame(frame.id, horse1);
+      useDrillStore.getState().addHorseToFrame(frame.id, horse2);
+      useDrillStore.getState().addHorseToFrame(frame.id, horse3);
+
+      const updatedFrame = useDrillStore.getState().getCurrentFrame();
+      if (!updatedFrame) return;
+
+      const horseIds = updatedFrame.horses.map((h) => h.id);
+      useDrillStore.getState().alignHorsesHorizontally(updatedFrame.id, horseIds);
+
+      const alignedFrame = useDrillStore.getState().getCurrentFrame();
+      const alignedHorses = alignedFrame?.horses || [];
+      
+      // All horses should have the same Y position (average of original Y positions)
+      const avgY = (0.3 + 0.7 + 0.4) / 3;
+      alignedHorses.forEach((horse) => {
+        expect(horse.position.y).toBeCloseTo(avgY, 5);
+      });
+    });
+
+    it('should align horses vertically', () => {
+      const frame = useDrillStore.getState().getCurrentFrame();
+      if (!frame) return;
+
+      const horse1 = createHorse(generateId(), 1, { x: 0.2, y: 0.3 });
+      const horse2 = createHorse(generateId(), 2, { x: 0.5, y: 0.7 });
+      const horse3 = createHorse(generateId(), 3, { x: 0.8, y: 0.4 });
+
+      useDrillStore.getState().addHorseToFrame(frame.id, horse1);
+      useDrillStore.getState().addHorseToFrame(frame.id, horse2);
+      useDrillStore.getState().addHorseToFrame(frame.id, horse3);
+
+      const updatedFrame = useDrillStore.getState().getCurrentFrame();
+      if (!updatedFrame) return;
+
+      const horseIds = updatedFrame.horses.map((h) => h.id);
+      useDrillStore.getState().alignHorsesVertically(updatedFrame.id, horseIds);
+
+      const alignedFrame = useDrillStore.getState().getCurrentFrame();
+      const alignedHorses = alignedFrame?.horses || [];
+      
+      // All horses should have the same X position (average of original X positions)
+      const avgX = (0.2 + 0.5 + 0.8) / 3;
+      alignedHorses.forEach((horse) => {
+        expect(horse.position.x).toBeCloseTo(avgX, 5);
+      });
+    });
+
+    it('should distribute horses evenly along line between two most separated', () => {
+      const frame = useDrillStore.getState().getCurrentFrame();
+      if (!frame) return;
+
+      // Create horses in a diagonal line - the two most separated should be horse1 and horse3
+      const horse1 = createHorse(generateId(), 1, { x: 0.1, y: 0.1 });
+      const horse2 = createHorse(generateId(), 2, { x: 0.5, y: 0.5 });
+      const horse3 = createHorse(generateId(), 3, { x: 0.9, y: 0.9 });
+
+      useDrillStore.getState().addHorseToFrame(frame.id, horse1);
+      useDrillStore.getState().addHorseToFrame(frame.id, horse2);
+      useDrillStore.getState().addHorseToFrame(frame.id, horse3);
+
+      const updatedFrame = useDrillStore.getState().getCurrentFrame();
+      if (!updatedFrame) return;
+
+      // Move middle horse to a different position
+      useDrillStore.getState().updateHorseInFrame(updatedFrame.id, horse2.id, {
+        position: { x: 0.3, y: 0.4 },
+      });
+
+      const horseIds = updatedFrame.horses.map((h) => h.id);
+      useDrillStore.getState().distributeHorsesEvenly(updatedFrame.id, horseIds);
+
+      const distributedFrame = useDrillStore.getState().getCurrentFrame();
+      const distributedHorses = distributedFrame?.horses || [];
+      
+      // Find horse1 and horse3 (the two most separated)
+      const h1 = distributedHorses.find((h) => h.id === horse1.id);
+      const h3 = distributedHorses.find((h) => h.id === horse3.id);
+      
+      // Horse1 and horse3 should be at their original positions (the endpoints)
+      expect(h1?.position.x).toBeCloseTo(0.1, 5);
+      expect(h1?.position.y).toBeCloseTo(0.1, 5);
+      expect(h3?.position.x).toBeCloseTo(0.9, 5);
+      expect(h3?.position.y).toBeCloseTo(0.9, 5);
+      
+      // Horse2 should be evenly spaced between them
+      const h2 = distributedHorses.find((h) => h.id === horse2.id);
+      expect(h2?.position.x).toBeCloseTo(0.5, 5);
+      expect(h2?.position.y).toBeCloseTo(0.5, 5);
+    });
+  });
+
   describe('sub-pattern management', () => {
     beforeEach(() => {
       useDrillStore.getState().createNewDrill('Test Drill');

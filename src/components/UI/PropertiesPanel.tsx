@@ -13,6 +13,9 @@ export default function PropertiesPanel() {
   const updateHorseInFrame = useDrillStore((state) => state.updateHorseInFrame);
   const addSubPatternToFrame = useDrillStore((state) => state.addSubPatternToFrame);
   const removeSubPatternFromFrame = useDrillStore((state) => state.removeSubPatternFromFrame);
+  const alignHorsesHorizontally = useDrillStore((state) => state.alignHorsesHorizontally);
+  const alignHorsesVertically = useDrillStore((state) => state.alignHorsesVertically);
+  const distributeHorsesEvenly = useDrillStore((state) => state.distributeHorsesEvenly);
 
   const selectedHorse = currentFrame?.horses.find(
     (h) => selectedHorseIds.includes(h.id)
@@ -141,6 +144,54 @@ export default function PropertiesPanel() {
               <div>Position: ({selectedHorse.position.x.toFixed(2)}, {selectedHorse.position.y.toFixed(2)})</div>
               <div>Locked: {selectedHorse.locked ? 'Yes' : 'No'}</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-Horse Alignment & Distribution */}
+      {currentFrame && selectedHorseIds.length >= 2 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-200">
+            Alignment & Distribution ({selectedHorseIds.length} horses)
+          </h3>
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  if (currentFrame) {
+                    alignHorsesHorizontally(currentFrame.id, selectedHorseIds);
+                  }
+                }}
+                className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                title="Align horizontally (same Y position) - Ctrl/Cmd + Shift + H"
+              >
+                Align H
+              </button>
+              <button
+                onClick={() => {
+                  if (currentFrame) {
+                    alignHorsesVertically(currentFrame.id, selectedHorseIds);
+                  }
+                }}
+                className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                title="Align vertically (same X position) - Ctrl/Cmd + Shift + V"
+              >
+                Align V
+              </button>
+            </div>
+            {selectedHorseIds.length >= 3 && (
+              <button
+                onClick={() => {
+                  if (currentFrame) {
+                    distributeHorsesEvenly(currentFrame.id, selectedHorseIds);
+                  }
+                }}
+                className="w-full px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+                title="Distribute evenly along line between two most separated horses - Ctrl/Cmd + Alt + D"
+              >
+                Distribute Evenly
+              </button>
+            )}
           </div>
         </div>
       )}

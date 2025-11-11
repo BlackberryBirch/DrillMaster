@@ -10,11 +10,6 @@ export default function Layout() {
       {/* Top Toolbar */}
       <Toolbar />
 
-      {/* Filmstrip */}
-      <div className="flex-shrink-0 border-b border-gray-300 dark:border-gray-700">
-        <Filmstrip />
-      </div>
-
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Editor (takes most space) */}
@@ -26,6 +21,11 @@ export default function Layout() {
         <div className="w-64 flex-shrink-0 border-l border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
           <PropertiesPanel />
         </div>
+      </div>
+
+      {/* Filmstrip (bottom) */}
+      <div className="flex-shrink-0 border-t border-gray-300 dark:border-gray-700">
+        <Filmstrip />
       </div>
 
       {/* Animation Controls (bottom) */}

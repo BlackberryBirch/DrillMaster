@@ -3,6 +3,7 @@ import { Stage, Layer } from 'react-konva';
 import ArenaCanvas from './ArenaCanvas';
 import EditorToolbar from './EditorToolbar';
 import { useEditorStore } from '../../stores/editorStore';
+import { useDrillStore } from '../../stores/drillStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { calculateArenaDimensions } from '../../utils/arena';
 
@@ -12,6 +13,11 @@ export default function Editor() {
   const [parentElement, setParentElement] = useState<HTMLDivElement | null>(null);
   const zoom = useEditorStore((state) => state.zoom);
   const pan = useEditorStore((state) => state.pan);
+  const selectedHorseIds = useEditorStore((state) => state.selectedHorseIds);
+  const currentFrame = useDrillStore((state) => state.getCurrentFrame());
+  const alignHorsesHorizontally = useDrillStore((state) => state.alignHorsesHorizontally);
+  const alignHorsesVertically = useDrillStore((state) => state.alignHorsesVertically);
+  const distributeHorsesEvenly = useDrillStore((state) => state.distributeHorsesEvenly);
 
   // Callback ref to get the parent container element (the flex container)
   const parentRef = useCallback((node: HTMLDivElement | null) => {
@@ -103,6 +109,49 @@ export default function Editor() {
       window.removeEventListener('resize', updateDimensions);
     };
   }, [containerElement, parentElement]);
+
+  // Keyboard shortcuts for alignment and distribution
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when we have horses selected and a current frame
+      if (!currentFrame || selectedHorseIds.length < 2) return;
+
+      // Check if we're in an input field (don't trigger shortcuts when typing)
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+
+      // Ctrl/Cmd + Shift + H: Align Horizontally
+      if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'h' && !e.altKey) {
+        e.preventDefault();
+        alignHorsesHorizontally(currentFrame.id, selectedHorseIds);
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + V: Align Vertically
+      if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'v' && !e.altKey) {
+        e.preventDefault();
+        alignHorsesVertically(currentFrame.id, selectedHorseIds);
+        return;
+      }
+
+      // Ctrl/Cmd + Alt + D: Distribute Evenly (requires 3+ horses)
+      if (ctrlOrCmd && e.altKey && e.key.toLowerCase() === 'd' && selectedHorseIds.length >= 3) {
+        e.preventDefault();
+        distributeHorsesEvenly(currentFrame.id, selectedHorseIds);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentFrame, selectedHorseIds, alignHorsesHorizontally, alignHorsesVertically, distributeHorsesEvenly]);
 
   const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height - 60);
   const theme = useThemeStore((state) => state.theme);
