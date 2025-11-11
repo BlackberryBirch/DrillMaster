@@ -1,5 +1,6 @@
 import { useDrillStore } from '../../stores/drillStore';
 import { useThemeStore } from '../../stores/themeStore';
+import { useHistoryStore } from '../../stores/historyStore';
 import { fileIO } from '../../utils/fileIO';
 
 export default function Toolbar() {
@@ -42,6 +43,10 @@ export default function Toolbar() {
 
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
+  const undo = useHistoryStore((state) => state.undo);
+  const redo = useHistoryStore((state) => state.redo);
+  const canUndo = useHistoryStore((state) => state.canUndo);
+  const canRedo = useHistoryStore((state) => state.canRedo);
 
   return (
     <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-4 py-2 flex items-center gap-2">
@@ -63,6 +68,23 @@ export default function Toolbar() {
         className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
         Save
+      </button>
+      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
+      <button
+        onClick={undo}
+        disabled={!canUndo()}
+        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
+        title="Undo (Ctrl/Cmd + Z)"
+      >
+        Undo
+      </button>
+      <button
+        onClick={redo}
+        disabled={!canRedo()}
+        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
+        title="Redo (Ctrl/Cmd + Shift + Z)"
+      >
+        Redo
       </button>
       <div className="flex-1" />
       {drill && (

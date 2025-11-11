@@ -14,7 +14,6 @@ describe('EditorToolbar', () => {
     });
     useEditorStore.setState({
       showDirectionArrows: true,
-      snapToGrid: false,
       zoom: 1.0,
     });
   });
@@ -28,7 +27,6 @@ describe('EditorToolbar', () => {
     
     expect(screen.getByText('Add Horse')).toBeInTheDocument();
     expect(screen.getByText('Show Arrows')).toBeInTheDocument();
-    expect(screen.getByText('Snap to Grid')).toBeInTheDocument();
   });
 
   it('should show frame counter', () => {

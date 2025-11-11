@@ -1,18 +1,13 @@
 import { useDrillStore } from '../../stores/drillStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { GAITS, Gait, createSubPattern } from '../../types';
-import { generateId } from '../../utils/uuid';
+import { GAITS, Gait } from '../../types';
 
 export default function PropertiesPanel() {
   const currentFrame = useDrillStore((state) => state.getCurrentFrame());
   const selectedHorseIds = useEditorStore((state) => state.selectedHorseIds);
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
-  const snapToGrid = useEditorStore((state) => state.snapToGrid);
   const toggleDirectionArrows = useEditorStore((state) => state.toggleDirectionArrows);
-  const toggleSnapToGrid = useEditorStore((state) => state.toggleSnapToGrid);
   const updateHorseInFrame = useDrillStore((state) => state.updateHorseInFrame);
-  const addSubPatternToFrame = useDrillStore((state) => state.addSubPatternToFrame);
-  const removeSubPatternFromFrame = useDrillStore((state) => state.removeSubPatternFromFrame);
   const alignHorsesHorizontally = useDrillStore((state) => state.alignHorsesHorizontally);
   const alignHorsesVertically = useDrillStore((state) => state.alignHorsesVertically);
   const distributeHorsesEvenly = useDrillStore((state) => state.distributeHorsesEvenly);
@@ -40,25 +35,6 @@ export default function PropertiesPanel() {
     handleUpdateHorse({ label: isNaN(numLabel) ? label : numLabel });
   };
 
-  const handleCreateSubPattern = () => {
-    if (!currentFrame || selectedHorseIds.length < 2) {
-      alert('Please select at least 2 horses to create a sub-pattern');
-      return;
-    }
-
-    const subPattern = createSubPattern(generateId(), selectedHorseIds);
-    
-    // Update horses to be locked and assigned to pattern
-    selectedHorseIds.forEach((horseId) => {
-      updateHorseInFrame(currentFrame.id, horseId, {
-        locked: true,
-        subPatternId: subPattern.id,
-      });
-    });
-
-    addSubPatternToFrame(currentFrame.id, subPattern);
-  };
-
   return (
     <div className="h-full overflow-y-auto p-4">
       <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Properties</h2>
@@ -66,21 +42,13 @@ export default function PropertiesPanel() {
       {/* Editor Settings */}
       <div className="mb-6">
         <h3 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-200">Editor Settings</h3>
-        <label className="flex items-center gap-2 mb-2">
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={showDirectionArrows}
             onChange={toggleDirectionArrows}
           />
           <span className="text-sm text-gray-700 dark:text-gray-300">Show Direction Arrows</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={snapToGrid}
-            onChange={toggleSnapToGrid}
-          />
-          <span className="text-sm text-gray-700 dark:text-gray-300">Snap to Grid</span>
         </label>
       </div>
 
@@ -90,7 +58,6 @@ export default function PropertiesPanel() {
           <h3 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-200">Frame {currentFrame.index + 1}</h3>
           <div className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
             <div>Horses: {currentFrame.horses.length}</div>
-            <div>Sub-patterns: {currentFrame.subPatterns.length}</div>
             <div>Duration: {currentFrame.duration}s</div>
           </div>
         </div>
@@ -142,7 +109,6 @@ export default function PropertiesPanel() {
             
             <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
               <div>Position: ({selectedHorse.position.x.toFixed(2)}, {selectedHorse.position.y.toFixed(2)})</div>
-              <div>Locked: {selectedHorse.locked ? 'Yes' : 'No'}</div>
             </div>
           </div>
         </div>
@@ -192,49 +158,6 @@ export default function PropertiesPanel() {
                 Distribute Evenly
               </button>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Sub-Pattern Creation */}
-      {currentFrame && selectedHorseIds.length >= 2 && (
-        <div className="mb-6">
-          <button
-            onClick={handleCreateSubPattern}
-            className="w-full px-3 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
-          >
-            Create Sub-Pattern ({selectedHorseIds.length} horses)
-          </button>
-        </div>
-      )}
-
-      {/* Sub-Patterns List */}
-      {currentFrame && currentFrame.subPatterns.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-200">Sub-Patterns</h3>
-          <div className="space-y-2">
-            {currentFrame.subPatterns.map((pattern) => (
-              <div key={pattern.id} className="text-sm p-2 bg-gray-100 dark:bg-gray-700 rounded">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="font-medium">
-                    {pattern.name || `Pattern ${pattern.id.slice(0, 8)}`}
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (confirm('Delete this sub-pattern?')) {
-                        removeSubPatternFromFrame(currentFrame.id, pattern.id);
-                      }
-                    }}
-                    className="text-red-500 hover:text-red-700 text-xs"
-                  >
-                    ×
-                  </button>
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  {pattern.horseIds.length} horses
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}

@@ -60,7 +60,7 @@ export default function HorseRenderer({
   const HORSE_LENGTH_METERS = 2.3;
 
   // Convert meters to pixels based on canvas dimensions
-  // Canvas width represents ARENA_LENGTH (40m), canvas height represents ARENA_WIDTH (20m)
+  // Canvas width represents ARENA_LENGTH (80m), canvas height represents ARENA_WIDTH (40m)
   // Use the average of both dimensions for a more consistent size
   const metersPerPixelX = ARENA_LENGTH / canvasWidth; // meters per pixel in X direction
   const metersPerPixelY = ARENA_WIDTH / canvasHeight; // meters per pixel in Y direction
@@ -100,8 +100,8 @@ export default function HorseRenderer({
         radiusX={horseLength / 2}
         radiusY={horseWidth / 2}
         fill={GAIT_COLORS[horse.speed]}
-        stroke={isSelected ? '#F97316' : horse.locked ? '#A855F7' : '#000000'}
-        strokeWidth={isSelected ? 3 : horse.locked ? 2 : 1}
+        stroke={isSelected ? '#F97316' : '#000000'}
+        strokeWidth={isSelected ? 3 : 1}
         opacity={0.8}
       />
 
@@ -112,8 +112,8 @@ export default function HorseRenderer({
         radiusX={horseLength * 0.15}
         radiusY={horseWidth * 0.25}
         fill={GAIT_COLORS[horse.speed]}
-        stroke={isSelected ? '#F97316' : horse.locked ? '#A855F7' : '#000000'}
-        strokeWidth={isSelected ? 3 : horse.locked ? 2 : 1}
+        stroke={isSelected ? '#F97316' : '#000000'}
+        strokeWidth={isSelected ? 3 : 1}
         opacity={0.8}
       />
 
@@ -121,8 +121,8 @@ export default function HorseRenderer({
       <Path
         data={`M ${-horseLength / 2},0 L ${-horseLength / 2 - horseLength * 0.1},${-horseWidth * 0.15} L ${-horseLength / 2 - horseLength * 0.1},${horseWidth * 0.15} Z`}
         fill={GAIT_COLORS[horse.speed]}
-        stroke={isSelected ? '#F97316' : horse.locked ? '#A855F7' : '#000000'}
-        strokeWidth={isSelected ? 3 : horse.locked ? 2 : 1}
+        stroke={isSelected ? '#F97316' : '#000000'}
+        strokeWidth={isSelected ? 3 : 1}
         opacity={0.8}
       />
 

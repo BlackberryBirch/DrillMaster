@@ -6,6 +6,7 @@ import { useThemeStore } from '../../stores/themeStore';
 import { useAnimationStore } from '../../stores/animationStore';
 import { getGridLines, canvasToPoint, pointToCanvas } from '../../utils/arena';
 import { getInterpolatedHorses } from '../../utils/animation';
+import { Horse } from '../../types';
 import HorseRenderer from './HorseRenderer';
 
 interface ArenaCanvasProps {
@@ -30,6 +31,7 @@ export default function ArenaCanvas({
   const selectedHorseIds = useEditorStore((state) => state.selectedHorseIds);
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
   const updateHorseInFrame = useDrillStore((state) => state.updateHorseInFrame);
+  const batchUpdateHorsesInFrame = useDrillStore((state) => state.batchUpdateHorsesInFrame);
   const setSelectedHorses = useEditorStore((state) => state.setSelectedHorses);
   const clearSelection = useEditorStore((state) => state.clearSelection);
   const addSelectedHorse = useEditorStore((state) => state.addSelectedHorse);
@@ -46,6 +48,7 @@ export default function ArenaCanvas({
 
   // Track the initial position when drag starts
   const dragStartPositionsRef = React.useRef<Map<string, { x: number; y: number }>>(new Map());
+  const isDraggingRef = React.useRef<boolean>(false);
 
   // Selection rectangle state
   const [selectionRect, setSelectionRect] = React.useState<{
@@ -58,6 +61,8 @@ export default function ArenaCanvas({
 
   const handleHorseDragStart = (horseId: string) => {
     if (!currentFrame) return;
+    
+    isDraggingRef.current = true;
     
     // Store initial positions of all selected horses (or just the dragged one if none selected)
     const horsesToMove = selectedHorseIds.length > 1 && selectedHorseIds.includes(horseId)
@@ -73,50 +78,35 @@ export default function ArenaCanvas({
     });
   };
 
-  const handleHorseDrag = (horseId: string, newX: number, newY: number) => {
+  // Handler for drag move - updates positions in real-time without history
+  const handleHorseDragMove = (horseId: string, newX: number, newY: number) => {
     // Don't allow dragging during animation
     if (animationState === 'playing') return;
     
     if (!currentFrame) return;
     
-    // newX and newY are already in arena coordinates (relative to parent Group)
-    // The parent Group's coordinate system is the arena (0 to width/height)
-    // We just need to convert from canvas coordinates to normalized point
-    const newNormalizedPoint = canvasToPoint(
-      newX,
-      newY,
-      width,
-      height
-    );
-    
-    // If multiple horses are selected and this horse is one of them, move all together
+    const newNormalizedPoint = canvasToPoint(newX, newY, width, height);
     const isMultiSelect = selectedHorseIds.length > 1 && selectedHorseIds.includes(horseId);
     
     if (isMultiSelect) {
-      // Get the initial position of the dragged horse
       const initialPos = dragStartPositionsRef.current.get(horseId);
       if (!initialPos) {
-        // Fallback: just move the dragged horse
         updateHorseInFrame(currentFrame.id, horseId, {
           position: newNormalizedPoint,
-        });
+        }, true); // Skip history during drag
         return;
       }
       
-      // Calculate the delta (change in position)
       const deltaX = newNormalizedPoint.x - initialPos.x;
       const deltaY = newNormalizedPoint.y - initialPos.y;
       
-      // Apply the same delta to all selected horses (except the dragged one, which Konva already moved)
+      // Update all horses without recording history (will be recorded on drag end)
       selectedHorseIds.forEach((id) => {
         if (id === horseId) {
-          // Skip the dragged horse - Konva already updated its position
-          // But we need to update it in our store to keep it in sync
           updateHorseInFrame(currentFrame.id, id, {
             position: newNormalizedPoint,
-          });
+          }, true); // Skip history
         } else {
-          // Apply delta to other selected horses
           const initialHorsePos = dragStartPositionsRef.current.get(id);
           if (initialHorsePos) {
             const newPos = {
@@ -125,20 +115,111 @@ export default function ArenaCanvas({
             };
             updateHorseInFrame(currentFrame.id, id, {
               position: newPos,
-            });
+            }, true); // Skip history
           }
         }
       });
     } else {
-      // Single horse drag
+      // Single horse drag - skip history during move
       updateHorseInFrame(currentFrame.id, horseId, {
         position: newNormalizedPoint,
-      });
+      }, true); // Skip history during drag
     }
   };
 
-  // Same handler for drag move - updates positions in real-time
-  const handleHorseDragMove = handleHorseDrag;
+  // Handler for drag end - records history
+  const handleHorseDragEnd = (horseId: string, newX: number, newY: number) => {
+    isDraggingRef.current = false;
+    
+    // Don't allow dragging during animation
+    if (animationState === 'playing') return;
+    
+    if (!currentFrame) return;
+    
+    const newNormalizedPoint = canvasToPoint(newX, newY, width, height);
+    const isMultiSelect = selectedHorseIds.length > 1 && selectedHorseIds.includes(horseId);
+    
+    if (isMultiSelect) {
+      const initialPos = dragStartPositionsRef.current.get(horseId);
+      if (!initialPos) {
+        // Fallback: just record the dragged horse
+        // First restore to initial position, then apply final position
+        const initialHorse = currentFrame.horses.find(h => h.id === horseId);
+        if (initialHorse) {
+          const savedInitialPos = dragStartPositionsRef.current.get(horseId);
+          if (savedInitialPos) {
+            // Restore to initial position first (skip history)
+            updateHorseInFrame(currentFrame.id, horseId, {
+              position: savedInitialPos,
+            }, true);
+          }
+        }
+        // Now apply final position with history
+        updateHorseInFrame(currentFrame.id, horseId, {
+          position: newNormalizedPoint,
+        }, false); // Record history on drag end
+        return;
+      }
+      
+      const deltaX = newNormalizedPoint.x - initialPos.x;
+      const deltaY = newNormalizedPoint.y - initialPos.y;
+      
+      // IMPORTANT: First restore all horses to their initial positions (skip history)
+      // This ensures that when we record history, the "previous" state is the initial positions
+      selectedHorseIds.forEach((id) => {
+        const savedInitialPos = dragStartPositionsRef.current.get(id);
+        if (savedInitialPos) {
+          updateHorseInFrame(currentFrame.id, id, {
+            position: savedInitialPos,
+          }, true); // Skip history - just restoring for proper history capture
+        }
+      });
+      
+      // Get fresh current frame after restoring initial positions
+      const frameAfterRestore = useDrillStore.getState().getCurrentFrame();
+      if (!frameAfterRestore) return;
+      
+      // Now batch all updates together for a single history entry
+      // The horses are now at their initial positions, so this will correctly capture
+      // initial -> final as the history entry
+      const updates = new Map<string, Partial<Horse>>();
+      
+      updates.set(horseId, { position: newNormalizedPoint });
+      
+      selectedHorseIds.forEach((id) => {
+        if (id !== horseId) {
+          const initialHorsePos = dragStartPositionsRef.current.get(id);
+          if (initialHorsePos) {
+            const newPos = {
+              x: initialHorsePos.x + deltaX,
+              y: initialHorsePos.y + deltaY,
+            };
+            updates.set(id, { position: newPos });
+          }
+        }
+      });
+      
+      // Use batch update which records history
+      // At this point, horses are at initial positions, so history will be correct
+      batchUpdateHorsesInFrame(frameAfterRestore.id, updates);
+    } else {
+      // Single horse drag
+      // First restore to initial position (skip history)
+      const savedInitialPos = dragStartPositionsRef.current.get(horseId);
+      if (savedInitialPos) {
+        updateHorseInFrame(currentFrame.id, horseId, {
+          position: savedInitialPos,
+        }, true); // Skip history - just restoring for proper history capture
+      }
+      // Get fresh current frame after restoring initial position
+      const frameAfterRestore = useDrillStore.getState().getCurrentFrame();
+      if (!frameAfterRestore) return;
+      // Now apply final position with history
+      updateHorseInFrame(frameAfterRestore.id, horseId, {
+        position: newNormalizedPoint,
+      }, false); // Record history on drag end
+    }
+  };
 
   // Get horses to display - use interpolated positions during animation
   const horsesToDisplay =
@@ -355,7 +436,7 @@ export default function ArenaCanvas({
             y={canvasPos.y}
             isSelected={isSelected}
             showArrow={showDirectionArrows}
-            onDrag={(newX, newY) => handleHorseDrag(horse.id, newX, newY)}
+            onDrag={(newX, newY) => handleHorseDragEnd(horse.id, newX, newY)}
             onDragStart={() => handleHorseDragStart(horse.id)}
             onDragMove={(newX, newY) => handleHorseDragMove(horse.id, newX, newY)}
             draggable={animationState !== 'playing'}

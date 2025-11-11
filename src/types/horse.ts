@@ -7,8 +7,6 @@ export interface Horse {
   position: Point;
   direction: number; // radians (0 = right, π/2 = up, π = left, 3π/2 = down)
   speed: Gait;
-  locked: boolean; // part of a sub-pattern?
-  subPatternId?: string;
 }
 
 export const createHorse = (
@@ -23,6 +21,5 @@ export const createHorse = (
   position,
   direction,
   speed,
-  locked: false,
 });
 

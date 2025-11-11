@@ -4,7 +4,6 @@ import { Point } from '../types';
 interface EditorStore {
   selectedHorseIds: string[];
   showDirectionArrows: boolean;
-  snapToGrid: boolean;
   zoom: number;
   pan: Point;
   
@@ -14,7 +13,6 @@ interface EditorStore {
   removeSelectedHorse: (id: string) => void;
   clearSelection: () => void;
   toggleDirectionArrows: () => void;
-  toggleSnapToGrid: () => void;
   setZoom: (zoom: number) => void;
   setPan: (pan: Point) => void;
   resetView: () => void;
@@ -23,7 +21,6 @@ interface EditorStore {
 export const useEditorStore = create<EditorStore>((set) => ({
   selectedHorseIds: [],
   showDirectionArrows: true,
-  snapToGrid: false,
   zoom: 1.0,
   pan: { x: 0, y: 0 },
 
@@ -45,9 +42,6 @@ export const useEditorStore = create<EditorStore>((set) => ({
   
   toggleDirectionArrows: () =>
     set((state) => ({ showDirectionArrows: !state.showDirectionArrows })),
-  
-  toggleSnapToGrid: () =>
-    set((state) => ({ snapToGrid: !state.snapToGrid })),
   
   setZoom: (zoom) => set({ zoom: Math.max(0.5, Math.min(3.0, zoom)) }),
   

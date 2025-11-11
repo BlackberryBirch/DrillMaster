@@ -29,7 +29,8 @@ describe('drillStore', () => {
       const drill = createDrill('test-id', 'Test Drill');
       useDrillStore.getState().setDrill(drill);
 
-      expect(useDrillStore.getState().drill).toBe(drill);
+      // setDrill creates a new object reference, so use toStrictEqual for deep equality
+      expect(useDrillStore.getState().drill).toStrictEqual(drill);
       expect(useDrillStore.getState().currentFrameIndex).toBe(0);
     });
   });
@@ -296,52 +297,6 @@ describe('drillStore', () => {
     });
   });
 
-  describe('sub-pattern management', () => {
-    beforeEach(() => {
-      useDrillStore.getState().createNewDrill('Test Drill');
-    });
-
-    it('should add sub-pattern to frame', () => {
-      const frame = useDrillStore.getState().getCurrentFrame();
-      const subPattern = {
-        id: generateId(),
-        horseIds: [generateId(), generateId()],
-        locked: true,
-      };
-
-      if (frame) {
-        useDrillStore.getState().addSubPatternToFrame(frame.id, subPattern);
-      }
-
-      const updatedFrame = useDrillStore.getState().getCurrentFrame();
-      expect(updatedFrame?.subPatterns).toHaveLength(1);
-    });
-
-    it('should remove sub-pattern and unlock horses', () => {
-      const frame = useDrillStore.getState().getCurrentFrame();
-      const horse = createHorse(generateId(), 1, { x: 0.5, y: 0.5 });
-      const subPattern = {
-        id: generateId(),
-        horseIds: [horse.id],
-        locked: true,
-      };
-
-      if (frame) {
-        useDrillStore.getState().addHorseToFrame(frame.id, horse);
-        useDrillStore.getState().updateHorseInFrame(frame.id, horse.id, {
-          locked: true,
-          subPatternId: subPattern.id,
-        });
-        useDrillStore.getState().addSubPatternToFrame(frame.id, subPattern);
-        useDrillStore.getState().removeSubPatternFromFrame(frame.id, subPattern.id);
-      }
-
-      const updatedFrame = useDrillStore.getState().getCurrentFrame();
-      expect(updatedFrame?.subPatterns).toHaveLength(0);
-      expect(updatedFrame?.horses[0].locked).toBe(false);
-      expect(updatedFrame?.horses[0].subPatternId).toBeUndefined();
-    });
-  });
 
   describe('getCurrentFrame', () => {
     it('should return current frame', () => {

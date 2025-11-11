@@ -1,9 +1,9 @@
 // Standard show arena dimensions
 // Typical: 20m x 40m or 20m x 60m
-// Using 20m x 40m as default (1:2 aspect ratio)
+// Using 40m x 80m as default (1:2 aspect ratio)
 
-export const ARENA_WIDTH = 20; // meters
-export const ARENA_LENGTH = 40; // meters
+export const ARENA_WIDTH = 40; // meters
+export const ARENA_LENGTH = 80; // meters
 export const ARENA_ASPECT_RATIO = ARENA_LENGTH / ARENA_WIDTH; // 2:1 (length:width)
 
 // Arena divisions

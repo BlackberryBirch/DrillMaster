@@ -6,9 +6,7 @@ import FrameCounter from './FrameCounter';
 
 export default function EditorToolbar() {
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
-  const snapToGrid = useEditorStore((state) => state.snapToGrid);
   const toggleDirectionArrows = useEditorStore((state) => state.toggleDirectionArrows);
-  const toggleSnapToGrid = useEditorStore((state) => state.toggleSnapToGrid);
   const resetView = useEditorStore((state) => state.resetView);
   const setZoom = useEditorStore((state) => state.setZoom);
   const zoom = useEditorStore((state) => state.zoom);
@@ -48,15 +46,6 @@ export default function EditorToolbar() {
           onChange={toggleDirectionArrows}
         />
         Show Arrows
-      </label>
-      
-      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-        <input
-          type="checkbox"
-          checked={snapToGrid}
-          onChange={toggleSnapToGrid}
-        />
-        Snap to Grid
       </label>
       
       <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />

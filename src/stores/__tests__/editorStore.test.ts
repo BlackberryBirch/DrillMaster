@@ -7,7 +7,6 @@ describe('editorStore', () => {
     useEditorStore.setState({
       selectedHorseIds: [],
       showDirectionArrows: true,
-      snapToGrid: false,
       zoom: 1.0,
       pan: { x: 0, y: 0 },
     });
@@ -55,14 +54,6 @@ describe('editorStore', () => {
       expect(useEditorStore.getState().showDirectionArrows).toBe(false);
       useEditorStore.getState().toggleDirectionArrows();
       expect(useEditorStore.getState().showDirectionArrows).toBe(true);
-    });
-
-    it('should toggle snap to grid', () => {
-      expect(useEditorStore.getState().snapToGrid).toBe(false);
-      useEditorStore.getState().toggleSnapToGrid();
-      expect(useEditorStore.getState().snapToGrid).toBe(true);
-      useEditorStore.getState().toggleSnapToGrid();
-      expect(useEditorStore.getState().snapToGrid).toBe(false);
     });
   });
 

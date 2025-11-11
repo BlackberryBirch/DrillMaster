@@ -1,14 +1,15 @@
 import { create } from 'zustand';
-import { Drill, Frame, Horse, SubPattern } from '../types';
+import { Drill, Frame, Horse } from '../types';
 import { createDrill, createFrame } from '../types';
 import { generateId } from '../utils/uuid';
+import { useHistoryStore } from './historyStore';
 
 interface DrillStore {
   drill: Drill | null;
   currentFrameIndex: number;
   
   // Actions
-  setDrill: (drill: Drill) => void;
+  setDrill: (drill: Drill, skipHistoryClear?: boolean, preserveFrameIndex?: boolean) => void;
   createNewDrill: (name: string) => void;
   addFrame: () => void;
   deleteFrame: (frameId: string) => void;
@@ -16,11 +17,9 @@ interface DrillStore {
   setCurrentFrame: (index: number) => void;
   updateFrame: (frameId: string, updates: Partial<Frame>) => void;
   addHorseToFrame: (frameId: string, horse: Horse) => void;
-  updateHorseInFrame: (frameId: string, horseId: string, updates: Partial<Horse>) => void;
+  updateHorseInFrame: (frameId: string, horseId: string, updates: Partial<Horse>, skipHistory?: boolean) => void;
+  batchUpdateHorsesInFrame: (frameId: string, updates: Map<string, Partial<Horse>>) => void;
   removeHorseFromFrame: (frameId: string, horseId: string) => void;
-  addSubPatternToFrame: (frameId: string, subPattern: SubPattern) => void;
-  updateSubPatternInFrame: (frameId: string, subPatternId: string, updates: Partial<SubPattern>) => void;
-  removeSubPatternFromFrame: (frameId: string, subPatternId: string) => void;
   
   // Alignment and distribution
   alignHorsesHorizontally: (frameId: string, horseIds: string[]) => void;
@@ -35,13 +34,32 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
   drill: null,
   currentFrameIndex: 0,
 
-  setDrill: (drill) => set({ drill, currentFrameIndex: 0 }),
+  setDrill: (drill, skipHistoryClear = false, preserveFrameIndex = false) => {
+    let currentIndex = 0;
+    if (preserveFrameIndex) {
+      const prevIndex = get().currentFrameIndex;
+      // Preserve frame index if it's still valid in the new drill
+      if (drill && prevIndex >= 0 && prevIndex < drill.frames.length) {
+        currentIndex = prevIndex;
+      } else if (drill && drill.frames.length > 0) {
+        // Otherwise, use the last valid index
+        currentIndex = Math.min(prevIndex, drill.frames.length - 1);
+      }
+    }
+    set({ drill, currentFrameIndex: currentIndex });
+    // Clear history when loading a new drill (but not during undo/redo)
+    if (!skipHistoryClear) {
+      useHistoryStore.getState().clear();
+    }
+  },
 
   createNewDrill: (name) => {
     const newDrill = createDrill(generateId(), name);
     const firstFrame = createFrame(generateId(), 0, 0, 5.0);
     newDrill.frames = [firstFrame];
     set({ drill: newDrill, currentFrameIndex: 0 });
+    // Clear history when creating a new drill
+    useHistoryStore.getState().clear();
   },
 
   addFrame: () => {
@@ -124,11 +142,6 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
         ...h,
         id: generateId(),
       })),
-      subPatterns: frameToDuplicate.subPatterns.map((sp) => ({
-        ...sp,
-        id: generateId(),
-        horseIds: sp.horseIds.map(() => generateId()),
-      })),
     };
 
     // Update timestamps of subsequent frames
@@ -186,23 +199,99 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
     });
   },
 
-  updateHorseInFrame: (frameId, horseId, updates) => {
+  updateHorseInFrame: (frameId, horseId, updates, skipHistory = false) => {
     const { drill } = get();
     if (!drill) return;
 
-    set({
-      drill: {
-        ...drill,
-        frames: drill.frames.map((frame) =>
-          frame.id === frameId
-            ? {
-                ...frame,
-                horses: frame.horses.map((horse) =>
-                  horse.id === horseId ? { ...horse, ...updates } : horse
-                ),
-              }
-            : frame
-        ),
+    // Find the frame and horse to save previous state
+    const frame = drill.frames.find((f) => f.id === frameId);
+    if (!frame) return;
+    const horse = frame.horses.find((h) => h.id === horseId);
+    if (!horse) return;
+
+    // Save previous state for undo (only if not skipping history)
+    let previousDrill: Drill | null = null;
+    if (!skipHistory) {
+      previousDrill = JSON.parse(JSON.stringify(drill));
+    }
+
+    // Apply update
+    const newDrill = {
+      ...drill,
+      frames: drill.frames.map((f) =>
+        f.id === frameId
+          ? {
+              ...f,
+              horses: f.horses.map((h) =>
+                h.id === horseId ? { ...h, ...updates } : h
+              ),
+            }
+          : f
+      ),
+    };
+
+    set({ drill: newDrill });
+
+    // Record in history (only if not skipping)
+    if (!skipHistory && previousDrill) {
+      // Create a deep copy of newDrill for history to prevent mutation
+      const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
+      useHistoryStore.getState().push({
+        description: `Update horse ${horseId}`,
+        undo: () => {
+          const { setDrill } = get();
+          setDrill(previousDrill!, true, true); // Skip history clear, preserve frame index
+        },
+        redo: () => {
+          const { setDrill } = get();
+          setDrill(newDrillCopy, true, true); // Skip history clear, preserve frame index
+        },
+      });
+    }
+  },
+
+  batchUpdateHorsesInFrame: (frameId, updates) => {
+    const { drill } = get();
+    if (!drill) return;
+
+    const frame = drill.frames.find((f) => f.id === frameId);
+    if (!frame) return;
+
+    // Save previous state for undo
+    const previousDrill = JSON.parse(JSON.stringify(drill));
+
+    // Apply all updates
+    const newDrill = {
+      ...drill,
+      frames: drill.frames.map((f) =>
+        f.id === frameId
+          ? {
+              ...f,
+              horses: f.horses.map((horse) => {
+                const horseUpdates = updates.get(horse.id);
+                return horseUpdates ? { ...horse, ...horseUpdates } : horse;
+              }),
+            }
+          : f
+      ),
+    };
+
+    set({ drill: newDrill });
+
+    // Record in history
+    // Create a deep copy of newDrill for history to prevent mutation
+    const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
+    useHistoryStore.getState().push({
+      description: updates.size === 1 
+        ? `Move horse` 
+        : `Move ${updates.size} horses`,
+      undo: () => {
+        const { setDrill } = get();
+        setDrill(previousDrill, true, true); // Skip history clear, preserve frame index
+      },
+      redo: () => {
+        const { setDrill } = get();
+        setDrill(newDrillCopy, true, true); // Skip history clear, preserve frame index
       },
     });
   },
@@ -219,71 +308,6 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
             ? {
                 ...frame,
                 horses: frame.horses.filter((h) => h.id !== horseId),
-                subPatterns: frame.subPatterns.map((sp) => ({
-                  ...sp,
-                  horseIds: sp.horseIds.filter((id) => id !== horseId),
-                })).filter((sp) => sp.horseIds.length > 0),
-              }
-            : frame
-        ),
-      },
-    });
-  },
-
-  addSubPatternToFrame: (frameId, subPattern) => {
-    const { drill } = get();
-    if (!drill) return;
-
-    set({
-      drill: {
-        ...drill,
-        frames: drill.frames.map((frame) =>
-          frame.id === frameId
-            ? { ...frame, subPatterns: [...frame.subPatterns, subPattern] }
-            : frame
-        ),
-      },
-    });
-  },
-
-  updateSubPatternInFrame: (frameId, subPatternId, updates) => {
-    const { drill } = get();
-    if (!drill) return;
-
-    set({
-      drill: {
-        ...drill,
-        frames: drill.frames.map((frame) =>
-          frame.id === frameId
-            ? {
-                ...frame,
-                subPatterns: frame.subPatterns.map((sp) =>
-                  sp.id === subPatternId ? { ...sp, ...updates } : sp
-                ),
-              }
-            : frame
-        ),
-      },
-    });
-  },
-
-  removeSubPatternFromFrame: (frameId, subPatternId) => {
-    const { drill } = get();
-    if (!drill) return;
-
-    set({
-      drill: {
-        ...drill,
-        frames: drill.frames.map((frame) =>
-          frame.id === frameId
-            ? {
-                ...frame,
-                subPatterns: frame.subPatterns.filter((sp) => sp.id !== subPatternId),
-                horses: frame.horses.map((horse) =>
-                  horse.subPatternId === subPatternId
-                    ? { ...horse, locked: false, subPatternId: undefined }
-                    : horse
-                ),
               }
             : frame
         ),
@@ -302,26 +326,48 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
     const selectedHorses = frame.horses.filter((h) => horseIds.includes(h.id));
     if (selectedHorses.length < 2) return;
 
+    // Save previous state for undo
+    const previousDrill = JSON.parse(JSON.stringify(drill));
+
     // Calculate average Y position
     const avgY = selectedHorses.reduce((sum, h) => sum + h.position.y, 0) / selectedHorses.length;
 
     // Update all selected horses to have the same Y position
-    set({
-      drill: {
-        ...drill,
-        frames: drill.frames.map((f) =>
-          f.id === frameId
-            ? {
-                ...f,
-                horses: f.horses.map((horse) =>
-                  horseIds.includes(horse.id)
-                    ? { ...horse, position: { ...horse.position, y: avgY } }
-                    : horse
-                ),
-              }
-            : f
-        ),
-      },
+    const newDrill = {
+      ...drill,
+      frames: drill.frames.map((f) =>
+        f.id === frameId
+          ? {
+              ...f,
+              horses: f.horses.map((horse) =>
+                horseIds.includes(horse.id)
+                  ? { ...horse, position: { ...horse.position, y: avgY } }
+                  : horse
+              ),
+            }
+          : f
+      ),
+    };
+
+    set({ drill: newDrill });
+
+    // Record in history
+    // Create a deep copy of newDrill for history to prevent mutation
+    const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
+    useHistoryStore.getState().push({
+      description: `Align ${horseIds.length} horses horizontally`,
+        undo: () => {
+          const { setDrill } = get();
+          // Create a fresh deep copy when restoring to ensure no mutation
+          const restoredPrevious = JSON.parse(JSON.stringify(previousDrillCopy));
+          setDrill(restoredPrevious, true, true); // Skip history clear, preserve frame index
+        },
+        redo: () => {
+          const { setDrill } = get();
+          // Create a fresh deep copy when restoring to ensure no mutation
+          const restoredNew = JSON.parse(JSON.stringify(newDrillCopy));
+          setDrill(restoredNew, true, true); // Skip history clear, preserve frame index
+        },
     });
   },
 
@@ -336,26 +382,48 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
     const selectedHorses = frame.horses.filter((h) => horseIds.includes(h.id));
     if (selectedHorses.length < 2) return;
 
+    // Save previous state for undo
+    const previousDrill = JSON.parse(JSON.stringify(drill));
+
     // Calculate average X position
     const avgX = selectedHorses.reduce((sum, h) => sum + h.position.x, 0) / selectedHorses.length;
 
     // Update all selected horses to have the same X position
-    set({
-      drill: {
-        ...drill,
-        frames: drill.frames.map((f) =>
-          f.id === frameId
-            ? {
-                ...f,
-                horses: f.horses.map((horse) =>
-                  horseIds.includes(horse.id)
-                    ? { ...horse, position: { ...horse.position, x: avgX } }
-                    : horse
-                ),
-              }
-            : f
-        ),
-      },
+    const newDrill = {
+      ...drill,
+      frames: drill.frames.map((f) =>
+        f.id === frameId
+          ? {
+              ...f,
+              horses: f.horses.map((horse) =>
+                horseIds.includes(horse.id)
+                  ? { ...horse, position: { ...horse.position, x: avgX } }
+                  : horse
+              ),
+            }
+          : f
+      ),
+    };
+
+    set({ drill: newDrill });
+
+    // Record in history
+    // Create a deep copy of newDrill for history to prevent mutation
+    const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
+    useHistoryStore.getState().push({
+      description: `Align ${horseIds.length} horses vertically`,
+        undo: () => {
+          const { setDrill } = get();
+          // Create a fresh deep copy when restoring to ensure no mutation
+          const restoredPrevious = JSON.parse(JSON.stringify(previousDrillCopy));
+          setDrill(restoredPrevious, true, true); // Skip history clear, preserve frame index
+        },
+        redo: () => {
+          const { setDrill } = get();
+          // Create a fresh deep copy when restoring to ensure no mutation
+          const restoredNew = JSON.parse(JSON.stringify(newDrillCopy));
+          setDrill(restoredNew, true, true); // Skip history clear, preserve frame index
+        },
     });
   },
 
@@ -431,23 +499,45 @@ export const useDrillStore = create<DrillStore>((set, get) => ({
       newPositions.set(horse.id, { x: newX, y: newY });
     });
 
+    // Save previous state for undo
+    const previousDrill = JSON.parse(JSON.stringify(drill));
+
     // Update all selected horses
-    set({
-      drill: {
-        ...drill,
-        frames: drill.frames.map((f) =>
-          f.id === frameId
-            ? {
-                ...f,
-                horses: f.horses.map((horse) =>
-                  newPositions.has(horse.id)
-                    ? { ...horse, position: newPositions.get(horse.id)! }
-                    : horse
-                ),
-              }
-            : f
-        ),
-      },
+    const newDrill = {
+      ...drill,
+      frames: drill.frames.map((f) =>
+        f.id === frameId
+          ? {
+              ...f,
+              horses: f.horses.map((horse) =>
+                newPositions.has(horse.id)
+                  ? { ...horse, position: newPositions.get(horse.id)! }
+                  : horse
+              ),
+            }
+          : f
+      ),
+    };
+
+    set({ drill: newDrill });
+
+    // Record in history
+    // Create a deep copy of newDrill for history to prevent mutation
+    const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
+    useHistoryStore.getState().push({
+      description: `Distribute ${horseIds.length} horses evenly`,
+        undo: () => {
+          const { setDrill } = get();
+          // Create a fresh deep copy when restoring to ensure no mutation
+          const restoredPrevious = JSON.parse(JSON.stringify(previousDrillCopy));
+          setDrill(restoredPrevious, true, true); // Skip history clear, preserve frame index
+        },
+        redo: () => {
+          const { setDrill } = get();
+          // Create a fresh deep copy when restoring to ensure no mutation
+          const restoredNew = JSON.parse(JSON.stringify(newDrillCopy));
+          setDrill(restoredNew, true, true); // Skip history clear, preserve frame index
+        },
     });
   },
 

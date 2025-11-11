@@ -5,6 +5,7 @@ import EditorToolbar from './EditorToolbar';
 import { useEditorStore } from '../../stores/editorStore';
 import { useDrillStore } from '../../stores/drillStore';
 import { useThemeStore } from '../../stores/themeStore';
+import { useHistoryStore } from '../../stores/historyStore';
 import { calculateArenaDimensions } from '../../utils/arena';
 
 export default function Editor() {
@@ -18,6 +19,10 @@ export default function Editor() {
   const alignHorsesHorizontally = useDrillStore((state) => state.alignHorsesHorizontally);
   const alignHorsesVertically = useDrillStore((state) => state.alignHorsesVertically);
   const distributeHorsesEvenly = useDrillStore((state) => state.distributeHorsesEvenly);
+  const undo = useHistoryStore((state) => state.undo);
+  const redo = useHistoryStore((state) => state.redo);
+  const canUndo = useHistoryStore((state) => state.canUndo);
+  const canRedo = useHistoryStore((state) => state.canRedo);
 
   // Callback ref to get the parent container element (the flex container)
   const parentRef = useCallback((node: HTMLDivElement | null) => {
@@ -110,12 +115,9 @@ export default function Editor() {
     };
   }, [containerElement, parentElement]);
 
-  // Keyboard shortcuts for alignment and distribution
+  // Keyboard shortcuts for undo/redo, alignment and distribution
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle shortcuts when we have horses selected and a current frame
-      if (!currentFrame || selectedHorseIds.length < 2) return;
-
       // Check if we're in an input field (don't trigger shortcuts when typing)
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
@@ -124,6 +126,27 @@ export default function Editor() {
 
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+
+      // Ctrl/Cmd + Z: Undo
+      if (ctrlOrCmd && e.key.toLowerCase() === 'z' && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        if (canUndo()) {
+          undo();
+        }
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + Z: Redo
+      if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'z' && !e.altKey) {
+        e.preventDefault();
+        if (canRedo()) {
+          redo();
+        }
+        return;
+      }
+
+      // Only handle alignment shortcuts when we have horses selected and a current frame
+      if (!currentFrame || selectedHorseIds.length < 2) return;
 
       // Ctrl/Cmd + Shift + H: Align Horizontally
       if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'h' && !e.altKey) {
@@ -151,7 +174,7 @@ export default function Editor() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [currentFrame, selectedHorseIds, alignHorsesHorizontally, alignHorsesVertically, distributeHorsesEvenly]);
+  }, [currentFrame, selectedHorseIds, alignHorsesHorizontally, alignHorsesVertically, distributeHorsesEvenly, undo, redo, canUndo, canRedo]);
 
   const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height - 60);
   const theme = useThemeStore((state) => state.theme);
