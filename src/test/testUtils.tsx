@@ -9,6 +9,8 @@ vi.mock('react-konva', () => ({
   Group: ({ children }: any) => <div data-testid="group">{children}</div>,
   Rect: () => <div data-testid="rect" />,
   Circle: () => <div data-testid="circle" />,
+  Ellipse: () => <div data-testid="ellipse" />,
+  Path: () => <div data-testid="path" />,
   Line: () => <div data-testid="line" />,
   Text: () => <div data-testid="text" />,
   Arrow: () => <div data-testid="arrow" />,

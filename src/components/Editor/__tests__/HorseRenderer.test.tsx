@@ -9,8 +9,8 @@ describe('HorseRenderer', () => {
   const mockOnDrag = vi.fn();
   const mockOnClick = vi.fn();
 
-  it('should render horse circle', () => {
-    const { getByTestId } = render(
+  it('should render horse shape', () => {
+    const { getAllByTestId } = render(
       <HorseRenderer
         horse={mockHorse}
         x={100}
@@ -19,10 +19,15 @@ describe('HorseRenderer', () => {
         showArrow={false}
         onDrag={mockOnDrag}
         onClick={mockOnClick}
+        canvasWidth={800}
+        canvasHeight={400}
       />
     );
     
-    expect(getByTestId('circle')).toBeInTheDocument();
+    // Should render ellipses (body and head) and path (tail)
+    const ellipses = getAllByTestId('ellipse');
+    expect(ellipses.length).toBeGreaterThan(0);
+    expect(getAllByTestId('path').length).toBeGreaterThan(0);
   });
 
   it('should render horse label', () => {
@@ -35,6 +40,8 @@ describe('HorseRenderer', () => {
         showArrow={false}
         onDrag={mockOnDrag}
         onClick={mockOnClick}
+        canvasWidth={800}
+        canvasHeight={400}
       />
     );
     
@@ -51,6 +58,8 @@ describe('HorseRenderer', () => {
         showArrow={true}
         onDrag={mockOnDrag}
         onClick={mockOnClick}
+        canvasWidth={800}
+        canvasHeight={400}
       />
     );
     
@@ -67,6 +76,8 @@ describe('HorseRenderer', () => {
         showArrow={false}
         onDrag={mockOnDrag}
         onClick={mockOnClick}
+        canvasWidth={800}
+        canvasHeight={400}
       />
     );
     

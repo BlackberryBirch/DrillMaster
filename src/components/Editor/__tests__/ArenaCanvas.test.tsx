@@ -57,8 +57,9 @@ describe('ArenaCanvas', () => {
     // Should render groups (arena group + horse groups)
     const groups = getAllByTestId('group');
     expect(groups.length).toBeGreaterThan(0);
-    // Should have a circle for the horse
-    expect(getAllByTestId('circle').length).toBeGreaterThan(0);
+    // Should have ellipses (body and head) and path (tail) for the horse
+    expect(getAllByTestId('ellipse').length).toBeGreaterThan(0);
+    expect(getAllByTestId('path').length).toBeGreaterThan(0);
   });
 
   it('should render grid lines', () => {

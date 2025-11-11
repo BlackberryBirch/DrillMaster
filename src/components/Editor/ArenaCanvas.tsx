@@ -125,6 +125,8 @@ export default function ArenaCanvas({
             showArrow={showDirectionArrows}
             onDrag={(newX, newY) => handleHorseDrag(horse.id, newX, newY)}
             draggable={animationState !== 'playing'}
+            canvasWidth={width}
+            canvasHeight={height}
             onClick={(e: any) => {
               // Don't allow selection during animation
               if (animationState === 'playing') return;
