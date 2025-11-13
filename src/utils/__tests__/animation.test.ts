@@ -149,7 +149,8 @@ describe('animation', () => {
       fromFrame.horses = [horse];
       const toFrame = createFrame(generateId(), 1, 5, 5.0);
       
-      const result = interpolateHorse('horse1', fromFrame, toFrame, 0);
+      // interpolateHorse matches by label, not id
+      const result = interpolateHorse(1, fromFrame, toFrame, 0);
       expect(result).toEqual(horse);
     });
 
@@ -161,7 +162,8 @@ describe('animation', () => {
       const toFrame = createFrame(generateId(), 1, 5, 5.0);
       toFrame.horses = [toHorse];
       
-      const result = interpolateHorse('horse1', fromFrame, toFrame, 1);
+      // interpolateHorse matches by label, not id
+      const result = interpolateHorse(1, fromFrame, toFrame, 1);
       expect(result).toEqual(toHorse);
     });
 
@@ -170,7 +172,8 @@ describe('animation', () => {
       const fromFrame = createFrame(generateId(), 0, 0, 5.0);
       fromFrame.horses = [horse];
       
-      const result = interpolateHorse('horse1', fromFrame, null, 0.5);
+      // interpolateHorse matches by label, not id
+      const result = interpolateHorse(1, fromFrame, null, 0.5);
       expect(result).toEqual(horse);
     });
 
@@ -182,7 +185,8 @@ describe('animation', () => {
       const toFrame = createFrame(generateId(), 1, 5, 5.0);
       toFrame.horses = [toHorse];
       
-      const result = interpolateHorse('horse1', fromFrame, toFrame, 0.5);
+      // interpolateHorse matches by label, not id
+      const result = interpolateHorse(1, fromFrame, toFrame, 0.5);
       
       expect(result).not.toBeNull();
       expect(result?.position.x).toBeCloseTo(0.6);
@@ -198,7 +202,8 @@ describe('animation', () => {
       const toFrame = createFrame(generateId(), 1, 5, 5.0);
       toFrame.horses = []; // No horses in to frame
       
-      const result = interpolateHorse('horse1', fromFrame, toFrame, 0.5);
+      // interpolateHorse matches by label, not id
+      const result = interpolateHorse(1, fromFrame, toFrame, 0.5);
       expect(result).toEqual(fromHorse);
     });
   });

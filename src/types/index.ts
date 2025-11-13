@@ -4,4 +4,5 @@ export * from './horse';
 export * from './frame';
 export * from './drill';
 export * from './fileFormat';
+export * from './database';
 

@@ -2,6 +2,8 @@ import { useDrillStore } from '../../stores/drillStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { fileIO } from '../../utils/fileIO';
+import AuthButton from '../Auth/AuthButton';
+import Logo from './Logo';
 
 export default function Toolbar() {
   const drill = useDrillStore((state) => state.drill);
@@ -77,6 +79,8 @@ export default function Toolbar() {
 
   return (
     <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-4 py-2 flex items-center gap-2">
+      <Logo className="mr-2" size={32} />
+      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
       <button
         onClick={handleNew}
         className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -134,6 +138,8 @@ export default function Toolbar() {
       {drill && (
         <span className="text-sm text-gray-600 dark:text-gray-300">{drill.name}</span>
       )}
+      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
+      <AuthButton />
       <button
         onClick={toggleTheme}
         className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
