@@ -26,6 +26,85 @@ export const lerpPoint = (start: Point, end: Point, t: number): Point => {
 };
 
 /**
+ * Calculate a direction vector from an angle (in radians)
+ * Returns a normalized vector pointing in the direction
+ */
+const directionToVector = (angle: number): Point => {
+  return {
+    x: Math.cos(angle),
+    y: Math.sin(angle),
+  };
+};
+
+/**
+ * Calculate a curved path position using quadratic bezier curve
+ * The curve respects the starting and ending directions to create a natural arc
+ * where the horse moves forward in its facing direction
+ */
+const interpolatePositionAlongCurve = (
+  startPos: Point,
+  startDir: number,
+  endPos: Point,
+  endDir: number,
+  t: number
+): Point => {
+  // Calculate the distance between start and end
+  const dx = endPos.x - startPos.x;
+  const dy = endPos.y - startPos.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  // Calculate the angle difference between start and end directions
+  // This helps determine how much the curve should bend
+  let angleDiff = endDir - startDir;
+  // Normalize to -π to π range
+  while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+  while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+  const absAngleDiff = Math.abs(angleDiff);
+  
+  // Base curve strength on distance, but increase it for sharper turns
+  // Sharp turns (large angle difference) need more pronounced curves
+  const baseCurveStrength = Math.min(distance * 0.4, 0.25); // Base: 40% of distance, max 25% of arena
+  const turnMultiplier = 1 + (absAngleDiff / Math.PI) * 0.5; // Up to 1.5x for 180° turns
+  const curveStrength = baseCurveStrength * turnMultiplier;
+  
+  // Get direction vectors (normalized)
+  const startVec = directionToVector(startDir);
+  const endVec = directionToVector(endDir);
+  
+  // Calculate control points:
+  // - Control point 1: extend forward from start in starting direction
+  // - Control point 2: extend backward from end in reverse ending direction
+  // The length of extension determines how much the curve bends
+  const control1 = {
+    x: startPos.x + startVec.x * curveStrength,
+    y: startPos.y + startVec.y * curveStrength,
+  };
+  
+  const control2 = {
+    x: endPos.x - endVec.x * curveStrength,
+    y: endPos.y - endVec.y * curveStrength,
+  };
+  
+  // Use the midpoint of the two control points as the bezier control point
+  // This creates a smooth curve that respects both directions
+  const controlPoint = {
+    x: (control1.x + control2.x) / 2,
+    y: (control1.y + control2.y) / 2,
+  };
+  
+  // Quadratic bezier curve: B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2
+  const oneMinusT = 1 - t;
+  const x = oneMinusT * oneMinusT * startPos.x + 
+            2 * oneMinusT * t * controlPoint.x + 
+            t * t * endPos.x;
+  const y = oneMinusT * oneMinusT * startPos.y + 
+            2 * oneMinusT * t * controlPoint.y + 
+            t * t * endPos.y;
+  
+  return { x, y };
+};
+
+/**
  * Interpolate angle (handles wrapping around 2π)
  */
 export const lerpAngle = (start: number, end: number, t: number): number => {
@@ -117,14 +196,24 @@ export const interpolateHorse = (
     return fromHorse;
   }
 
-  // Apply easing for smoother animation
-  const easedT = easeInOut(t);
+  // Check if the gait (speed) is the same between frames
+  // If same gait, use linear interpolation for constant speed
+  // If different gait, use easing for smoother transitions
+  const sameGait = fromHorse.speed === toHorse.speed;
+  const interpolationT = sameGait ? t : easeInOut(t);
 
-  // Interpolate position with easing
-  const interpolatedPosition = lerpPoint(fromHorse.position, toHorse.position, easedT);
+  // Interpolate position along a curved path that respects the horse's facing direction
+  // This creates a natural arc where the horse moves forward in its current direction
+  const interpolatedPosition = interpolatePositionAlongCurve(
+    fromHorse.position,
+    fromHorse.direction,
+    toHorse.position,
+    toHorse.direction,
+    interpolationT
+  );
 
-  // Interpolate direction with easing
-  const interpolatedDirection = lerpAngle(fromHorse.direction, toHorse.direction, easedT);
+  // Interpolate direction
+  const interpolatedDirection = lerpAngle(fromHorse.direction, toHorse.direction, interpolationT);
 
   // Use the gait from the current frame (or interpolate if needed)
   // For now, use the gait from the starting frame
