@@ -7,6 +7,8 @@ export default function Toolbar() {
   const drill = useDrillStore((state) => state.drill);
   const setDrill = useDrillStore((state) => state.setDrill);
   const createNewDrill = useDrillStore((state) => state.createNewDrill);
+  const setAudioTrack = useDrillStore((state) => state.setAudioTrack);
+  const removeAudioTrack = useDrillStore((state) => state.removeAudioTrack);
 
   const handleNew = () => {
     if (confirm('Create a new drill? Unsaved changes will be lost.')) {
@@ -41,6 +43,31 @@ export default function Toolbar() {
     input.click();
   };
 
+  const handleLoadAudio = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const url = event.target?.result as string;
+          setAudioTrack(url, 0, file.name);
+        };
+        reader.onerror = () => {
+          alert('Failed to load audio file');
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        alert(`Failed to load audio: ${error}`);
+      }
+    };
+    input.click();
+  };
+
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const undo = useHistoryStore((state) => state.undo);
@@ -69,6 +96,23 @@ export default function Toolbar() {
       >
         Save
       </button>
+      <button
+        onClick={handleLoadAudio}
+        disabled={!drill}
+        className="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        title="Load audio file"
+      >
+        🎵 Load Audio
+      </button>
+      {drill?.audioTrack && (
+        <button
+          onClick={removeAudioTrack}
+          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+          title="Remove audio track"
+        >
+          🗑️ Remove Audio
+        </button>
+      )}
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
       <button
         onClick={undo}

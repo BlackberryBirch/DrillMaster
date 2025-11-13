@@ -1,6 +1,7 @@
 import { useAnimationStore } from '../../stores/animationStore';
 import { useDrillStore } from '../../stores/drillStore';
 import { useAnimation } from '../../hooks/useAnimation';
+import { useAudio } from '../../hooks/useAudio';
 
 export default function AnimationControls() {
   const state = useAnimationStore((state) => state.state);
@@ -22,6 +23,9 @@ export default function AnimationControls() {
 
   // Start animation loop
   useAnimation();
+  
+  // Start audio playback
+  useAudio();
 
   const handlePreviousFrame = () => {
     if (!drill || currentFrameIndex <= 0) return;

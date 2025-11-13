@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Drill, Frame, Horse } from '../types';
+import { Drill, Frame, Horse, AudioTrack } from '../types';
 import { createDrill, createFrame } from '../types';
 import { generateId } from '../utils/uuid';
 import { useHistoryStore } from './historyStore';
@@ -26,6 +26,10 @@ interface DrillStore {
   alignHorsesHorizontally: (frameId: string, horseIds: string[]) => void;
   alignHorsesVertically: (frameId: string, horseIds: string[]) => void;
   distributeHorsesEvenly: (frameId: string, horseIds: string[]) => void;
+  
+  // Audio
+  setAudioTrack: (url: string, offset?: number, filename?: string) => void;
+  removeAudioTrack: () => void;
   
   // Getters
   getCurrentFrame: () => Frame | null;
@@ -534,6 +538,58 @@ export const useDrillStore = create<DrillStore>()(
           const restoredNew = JSON.parse(JSON.stringify(newDrillCopy));
           setDrill(restoredNew, true, true); // Skip history clear, preserve frame index
         },
+    });
+  },
+
+  setAudioTrack: (url, offset = 0, filename) => {
+    const { drill } = get();
+    if (!drill) return;
+
+    const audioTrack: AudioTrack = {
+      url,
+      offset,
+      filename,
+    };
+
+    // Save previous state for undo
+    const previousDrill = JSON.parse(JSON.stringify(drill));
+
+    const newDrill = {
+      ...drill,
+      audioTrack,
+    };
+
+    set({ drill: newDrill });
+
+    // Record in history
+    const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
+    useHistoryStore.getState().push({
+      description: 'Set audio track',
+      previousDrill,
+      newDrill: newDrillCopy,
+    });
+  },
+
+  removeAudioTrack: () => {
+    const { drill } = get();
+    if (!drill || !drill.audioTrack) return;
+
+    // Save previous state for undo
+    const previousDrill = JSON.parse(JSON.stringify(drill));
+
+    const newDrill = {
+      ...drill,
+      audioTrack: undefined,
+    };
+
+    set({ drill: newDrill });
+
+    // Record in history
+    const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
+    useHistoryStore.getState().push({
+      description: 'Remove audio track',
+      previousDrill,
+      newDrill: newDrillCopy,
     });
   },
 
