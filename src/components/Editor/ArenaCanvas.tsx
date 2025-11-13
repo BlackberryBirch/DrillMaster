@@ -127,6 +127,51 @@ export default function ArenaCanvas({
     }
   };
 
+  // Handler for arrow drag - updates direction and speed
+  const handleArrowDragStart = (horseId: string) => {
+    if (!currentFrame) return;
+    // Store initial state for history if needed
+  };
+
+  const handleArrowDragMove = (horseId: string, direction: number, speed: string) => {
+    // Don't allow dragging during animation
+    if (animationState === 'playing') return;
+    
+    if (!currentFrame) return;
+    
+    // Update horse direction and speed in real-time (skip history during drag)
+    updateHorseInFrame(currentFrame.id, horseId, {
+      direction,
+      speed: speed as any,
+    }, true); // Skip history during drag
+  };
+
+  const handleArrowDragEnd = (horseId: string, direction: number, speed: string) => {
+    // Don't allow dragging during animation
+    if (animationState === 'playing') return;
+    
+    if (!currentFrame) return;
+    
+    // First restore to initial state (skip history)
+    const horse = currentFrame.horses.find((h) => h.id === horseId);
+    if (horse) {
+      updateHorseInFrame(currentFrame.id, horseId, {
+        direction: horse.direction,
+        speed: horse.speed,
+      }, true); // Skip history - just restoring for proper history capture
+    }
+    
+    // Get fresh current frame after restoring
+    const frameAfterRestore = useDrillStore.getState().getCurrentFrame();
+    if (!frameAfterRestore) return;
+    
+    // Now apply final direction and speed with history
+    updateHorseInFrame(frameAfterRestore.id, horseId, {
+      direction,
+      speed: speed as any,
+    }, false); // Record history on drag end
+  };
+
   // Handler for drag end - records history
   const handleHorseDragEnd = (horseId: string, newX: number, newY: number) => {
     isDraggingRef.current = false;
@@ -447,6 +492,9 @@ export default function ArenaCanvas({
             onDrag={(newX, newY) => handleHorseDragEnd(horse.id, newX, newY)}
             onDragStart={() => handleHorseDragStart(horse.id)}
             onDragMove={(newX, newY) => handleHorseDragMove(horse.id, newX, newY)}
+            onArrowDrag={(direction, speed) => handleArrowDragEnd(horse.id, direction, speed)}
+            onArrowDragStart={() => handleArrowDragStart(horse.id)}
+            onArrowDragMove={(direction, speed) => handleArrowDragMove(horse.id, direction, speed)}
             draggable={animationState !== 'playing'}
             canvasWidth={width}
             canvasHeight={height}

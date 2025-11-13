@@ -1,5 +1,6 @@
-import { Group, Ellipse, Path, Text, Arrow } from 'react-konva';
-import { Horse, GAIT_COLORS } from '../../types';
+import React from 'react';
+import { Group, Ellipse, Path, Text, Arrow, Circle } from 'react-konva';
+import { Horse, GAIT_COLORS, Gait } from '../../types';
 import { ARENA_LENGTH, ARENA_WIDTH } from '../../constants/arena';
 
 interface HorseRendererProps {
@@ -12,6 +13,9 @@ interface HorseRendererProps {
   onDragStart?: () => void;
   onDragMove?: (x: number, y: number) => void;
   onClick: (e: any) => void;
+  onArrowDrag?: (direction: number, speed: Gait) => void;
+  onArrowDragStart?: () => void;
+  onArrowDragMove?: (direction: number, speed: Gait) => void;
   draggable?: boolean;
   canvasWidth: number;
   canvasHeight: number;
@@ -27,11 +31,23 @@ export default function HorseRenderer({
   onDragStart,
   onDragMove,
   onClick,
+  onArrowDrag,
+  onArrowDragStart,
+  onArrowDragMove,
   draggable = true,
   canvasWidth,
   canvasHeight,
 }: HorseRendererProps) {
-  const handleDragStart = () => {
+  // Track if an actual drag occurred (mouse moved after mousedown)
+  const hasDraggedRef = React.useRef<boolean>(false);
+  const dragStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  const handleDragStart = (e: any) => {
+    hasDraggedRef.current = false;
+    // Store the initial position to detect if mouse actually moved
+    const node = e.target;
+    dragStartPosRef.current = { x: node.x(), y: node.y() };
+    
     if (onDragStart) {
       onDragStart();
     }
@@ -40,24 +56,50 @@ export default function HorseRenderer({
   const handleDragMove = (e: any) => {
     // During drag, update positions in real-time
     const node = e.target;
+    
+    // Check if mouse actually moved (not just a click)
+    if (dragStartPosRef.current) {
+      const dx = node.x() - dragStartPosRef.current.x;
+      const dy = node.y() - dragStartPosRef.current.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Only consider it a drag if moved more than 3 pixels
+      if (distance > 3) {
+        hasDraggedRef.current = true;
+      }
+    }
+    
     if (onDragMove) {
       onDragMove(node.x(), node.y());
     }
   };
 
   const handleDragEnd = (e: any) => {
-    // When dragging ends, Konva has already updated the node's position
-    // e.target.x() and e.target.y() give the position relative to the parent Group
-    // The parent Group's coordinate system IS the arena coordinate system (0 to width/height)
-    // The parent's position (offsetX + pan.x, offsetY + pan.y) and scale (zoom) are just
-    // visual transforms - they don't affect the coordinate system of child nodes
-    // So we can use the position directly
     const node = e.target;
-    onDrag(node.x(), node.y());
+    const wasDrag = hasDraggedRef.current;
+    const startPos = dragStartPosRef.current;
+    
+    // Only update position if an actual drag occurred (mouse moved)
+    if (wasDrag) {
+      // When dragging ends, Konva has already updated the node's position
+      // e.target.x() and e.target.y() give the position relative to the parent Group
+      // The parent Group's coordinate system IS the arena coordinate system (0 to width/height)
+      // The parent's position (offsetX + pan.x, offsetY + pan.y) and scale (zoom) are just
+      // visual transforms - they don't affect the coordinate system of child nodes
+      // So we can use the position directly
+      onDrag(node.x(), node.y());
+    } else if (startPos) {
+      // Reset node position if it was just a click (no drag)
+      node.position(startPos);
+    }
+    
+    // Reset drag state
+    hasDraggedRef.current = false;
+    dragStartPosRef.current = null;
   };
 
   // Horse length is approximately 2.3 meters (nose to tail)
-  const HORSE_LENGTH_METERS = 2.3;
+  const HORSE_LENGTH_METERS = 2.7;
 
   // Convert meters to pixels based on canvas dimensions
   // Canvas width represents ARENA_LENGTH (80m), canvas height represents ARENA_WIDTH (40m)
@@ -68,7 +110,15 @@ export default function HorseRenderer({
   
   const horseLength = HORSE_LENGTH_METERS / metersPerPixel;
   const horseWidth = horseLength * 0.4; // Horse width is about 40% of length
-  const arrowLength = horseLength * 1.5; // Arrow length is 1.5x the horse length
+  
+  // Calculate arrow length based on speed (gait)
+  // Walk: 1.0x, Trot: 1.5x, Canter: 2.0x horse length
+  const speedMultipliers: Record<Gait, number> = {
+    walk: 1.0,
+    trot: 1.5,
+    canter: 2.0,
+  };
+  const baseArrowLength = horseLength * speedMultipliers[horse.speed];
   
   // Convert direction from radians to degrees for rotation
   const rotationDegrees = (horse.direction * 180) / Math.PI;
@@ -78,8 +128,135 @@ export default function HorseRenderer({
   // Front of horse is at (horseLength/2, 0) in local coordinates
   const arrowStartX = horseLength / 2; // Front of horse (nose)
   const arrowStartY = 0;
-  const arrowEndX = horseLength / 2 + arrowLength; // Arrow extends forward
+  const arrowEndX = horseLength / 2 + baseArrowLength; // Arrow extends forward
   const arrowEndY = 0;
+
+  // Handle arrow end drag
+  const handleArrowDragStart = (e: any) => {
+    e.cancelBubble = true;
+    if (e.evt) {
+      e.evt.stopPropagation();
+    }
+    if (onArrowDragStart) {
+      onArrowDragStart();
+    }
+  };
+
+  const handleArrowDragMove = (e: any) => {
+    e.cancelBubble = true;
+    if (e.evt) {
+      e.evt.stopPropagation();
+    }
+    
+    if (!onArrowDragMove) return;
+    
+    // Get the new local position of the circle (in horse's local coordinate system)
+    const node = e.target;
+    const newLocalX = node.x();
+    const newLocalY = node.y();
+    
+    // Calculate vector from horse center (0, 0 in local coords) to arrow end
+    const dx = newLocalX;
+    const dy = newLocalY;
+    
+    // Calculate direction in local coordinate system
+    // In local coords: positive X = forward (the arrow points along +X axis)
+    // The angle in local coords: atan2(dy, dx) gives angle from positive X axis
+    // But in canvas, Y is flipped (positive Y is down), so we need to negate dy
+    // The new world direction is the horse's current direction plus the local angle
+    const localAngle = Math.atan2(dy, dx);
+    const direction = horse.direction + localAngle;
+    
+    // Normalize to 0-2π range
+    let normalizedDirection = direction;
+    while (normalizedDirection < 0) normalizedDirection += 2 * Math.PI;
+    while (normalizedDirection >= 2 * Math.PI) normalizedDirection -= 2 * Math.PI;
+    
+    // Calculate distance (arrow length)
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Determine speed based on distance
+    // Thresholds based on horse length multipliers
+    const walkThreshold = horseLength * 1.25; // Between 1.0x and 1.5x
+    const trotThreshold = horseLength * 1.75; // Between 1.5x and 2.0x
+    
+    let speed: Gait;
+    if (distance < walkThreshold) {
+      speed = 'walk';
+    } else if (distance < trotThreshold) {
+      speed = 'trot';
+    } else {
+      speed = 'canter';
+    }
+    
+    onArrowDragMove(normalizedDirection, speed);
+  };
+
+  const handleArrowDragEnd = (e: any) => {
+    e.cancelBubble = true;
+    if (e.evt) {
+      e.evt.stopPropagation();
+    }
+    
+    if (!onArrowDrag) return;
+    
+    // Get the new local position of the circle (in horse's local coordinate system)
+    const node = e.target;
+    const newLocalX = node.x();
+    const newLocalY = node.y();
+    
+    // Calculate vector from horse center (0, 0 in local coords) to arrow end
+    const dx = newLocalX;
+    const dy = newLocalY;
+    
+    // Calculate direction in local coordinate system
+    // In local coords: positive X = forward (the arrow points along +X axis)
+    // But in canvas, Y is flipped (positive Y is down), so we need to negate dy
+    const localAngle = Math.atan2(dy, dx);
+    // The new world direction is the horse's current direction plus the local angle
+    const direction = horse.direction + localAngle;
+    
+    // Normalize to 0-2π range
+    let normalizedDirection = direction;
+    while (normalizedDirection < 0) normalizedDirection += 2 * Math.PI;
+    while (normalizedDirection >= 2 * Math.PI) normalizedDirection -= 2 * Math.PI;
+    
+    // Calculate distance (arrow length)
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Determine speed based on distance
+    const walkThreshold = horseLength * 1.25;
+    const trotThreshold = horseLength * 1.75;
+    
+    let speed: Gait;
+    if (distance < walkThreshold) {
+      speed = 'walk';
+    } else if (distance < trotThreshold) {
+      speed = 'trot';
+    } else {
+      speed = 'canter';
+    }
+    
+    onArrowDrag(normalizedDirection, speed);
+    
+    // Snap the handle back to the calculated arrow end position
+    // The arrow end in local coordinates is always along the +X axis (forward)
+    // Calculate the new arrow end position based on the new speed
+    const speedMultipliers: Record<Gait, number> = {
+      walk: 1.0,
+      trot: 1.5,
+      canter: 2.0,
+    };
+    const newArrowLength = horseLength * speedMultipliers[speed];
+    const newArrowEndX = horseLength / 2 + newArrowLength;
+    const newArrowEndY = 0;
+    
+    // Reset handle position to the arrow end (in local coordinates)
+    // Use setTimeout to ensure this happens after the drag event completes
+    setTimeout(() => {
+      node.position({ x: newArrowEndX, y: newArrowEndY });
+    }, 0);
+  };
 
   return (
           <Group
@@ -87,6 +264,7 @@ export default function HorseRenderer({
             y={y}
             rotation={rotationDegrees}
             draggable={draggable}
+            dragDistance={3}
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
@@ -145,14 +323,41 @@ export default function HorseRenderer({
 
       {/* Direction Arrow */}
       {showArrow && (
-        <Arrow
-          points={[arrowStartX, arrowStartY, arrowEndX, arrowEndY]}
-          stroke="#333333"
-          strokeWidth={2}
-          fill="#333333"
-          pointerLength={8}
-          pointerWidth={6}
-        />
+        <>
+          <Arrow
+            points={[arrowStartX, arrowStartY, arrowEndX, arrowEndY]}
+            stroke="#333333"
+            strokeWidth={2}
+            fill="#333333"
+            pointerLength={8}
+            pointerWidth={6}
+            listening={false}
+          />
+          {/* Invisible draggable handle at arrow end - allows dragging the arrow tip */}
+          <Circle
+            x={arrowEndX}
+            y={arrowEndY}
+            radius={8}
+            fill="transparent"
+            stroke="transparent"
+            draggable={draggable}
+            onDragStart={handleArrowDragStart}
+            onDragMove={handleArrowDragMove}
+            onDragEnd={handleArrowDragEnd}
+            onClick={(e) => {
+              e.cancelBubble = true;
+              if (e.evt) {
+                e.evt.stopPropagation();
+              }
+            }}
+            onTap={(e) => {
+              e.cancelBubble = true;
+              if (e.evt) {
+                e.evt.stopPropagation();
+              }
+            }}
+          />
+        </>
       )}
     </Group>
   );
