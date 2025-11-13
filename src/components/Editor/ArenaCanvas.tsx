@@ -128,7 +128,7 @@ export default function ArenaCanvas({
   };
 
   // Handler for arrow drag - updates direction and speed
-  const handleArrowDragStart = (horseId: string) => {
+  const handleArrowDragStart = (_horseId: string) => {
     if (!currentFrame) return;
     // Store initial state for history if needed
   };
