@@ -222,10 +222,18 @@ export default function ArenaCanvas({
   };
 
   // Get horses to display - use interpolated positions during animation
-  const horsesToDisplay =
-    currentFrame && drill && animationState === 'playing' && drill.frames.length > 0
-      ? getInterpolatedHorses(drill.frames, animationTime)
-      : currentFrame?.horses || [];
+  // During playback, interpolate between frames for smooth animation
+  // When stopped/paused, show exact frame positions
+  const horsesToDisplay = React.useMemo(() => {
+    if (animationState === 'playing' && drill && drill.frames.length > 0) {
+      // Use interpolated positions during animation
+      return getInterpolatedHorses(drill.frames, animationTime);
+    } else if (currentFrame) {
+      // Use exact frame positions when not playing
+      return currentFrame.horses;
+    }
+    return [];
+  }, [animationState, drill, animationTime, currentFrame]);
 
   // Handle arena background click - deselect all horses
   const handleArenaClick = (e: any) => {

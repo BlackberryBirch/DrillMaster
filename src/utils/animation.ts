@@ -1,5 +1,12 @@
 import { Frame, Horse, Point } from '../types';
-import { GAIT_SPEEDS } from '../types';
+
+/**
+ * Easing function for smooth animation (ease-in-out)
+ * Provides smoother acceleration and deceleration
+ */
+export const easeInOut = (t: number): number => {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+};
 
 /**
  * Linear interpolation between two values
@@ -72,7 +79,6 @@ export const getFrameInterpolation = (
   }
 
   // Time is beyond all frames, return last frame
-  const lastFrame = frames[frames.length - 1];
   return {
     frameIndex: frames.length - 1,
     nextFrameIndex: null,
@@ -82,14 +88,15 @@ export const getFrameInterpolation = (
 
 /**
  * Interpolate a horse's position between two frames
+ * Matches horses by label (not ID) since IDs change between frames
  */
 export const interpolateHorse = (
-  horseId: string,
+  horseLabel: string | number,
   fromFrame: Frame,
   toFrame: Frame | null,
   t: number
 ): Horse | null => {
-  const fromHorse = fromFrame.horses.find((h) => h.id === horseId);
+  const fromHorse = fromFrame.horses.find((h) => h.label === horseLabel);
   if (!fromHorse) return null;
 
   // If no next frame or t is 0, return horse from current frame
@@ -99,22 +106,25 @@ export const interpolateHorse = (
 
   // If t is 1, return horse from next frame
   if (t === 1) {
-    const toHorse = toFrame.horses.find((h) => h.id === horseId);
+    const toHorse = toFrame.horses.find((h) => h.label === horseLabel);
     return toHorse || fromHorse;
   }
 
-  // Find corresponding horse in next frame
-  const toHorse = toFrame.horses.find((h) => h.id === horseId);
+  // Find corresponding horse in next frame by label
+  const toHorse = toFrame.horses.find((h) => h.label === horseLabel);
   if (!toHorse) {
     // Horse doesn't exist in next frame, keep current position
     return fromHorse;
   }
 
-  // Interpolate position
-  const interpolatedPosition = lerpPoint(fromHorse.position, toHorse.position, t);
+  // Apply easing for smoother animation
+  const easedT = easeInOut(t);
 
-  // Interpolate direction
-  const interpolatedDirection = lerpAngle(fromHorse.direction, toHorse.direction, t);
+  // Interpolate position with easing
+  const interpolatedPosition = lerpPoint(fromHorse.position, toHorse.position, easedT);
+
+  // Interpolate direction with easing
+  const interpolatedDirection = lerpAngle(fromHorse.direction, toHorse.direction, easedT);
 
   // Use the gait from the current frame (or interpolate if needed)
   // For now, use the gait from the starting frame
@@ -130,6 +140,7 @@ export const interpolateHorse = (
 
 /**
  * Get all interpolated horses for a given time
+ * Matches horses by label (not ID) since IDs change between frames
  */
 export const getInterpolatedHorses = (
   frames: Frame[],
@@ -142,16 +153,17 @@ export const getInterpolatedHorses = (
   const currentFrame = frames[frameIndex];
   const nextFrame = nextFrameIndex !== null ? frames[nextFrameIndex] : null;
 
-  // Get all unique horse IDs from both frames
-  const horseIds = new Set<string>();
-  currentFrame.horses.forEach((h) => horseIds.add(h.id));
+  // Get all unique horse labels from both frames
+  // Use labels instead of IDs because IDs change when frames are copied
+  const horseLabels = new Set<string | number>();
+  currentFrame.horses.forEach((h) => horseLabels.add(h.label));
   if (nextFrame) {
-    nextFrame.horses.forEach((h) => horseIds.add(h.id));
+    nextFrame.horses.forEach((h) => horseLabels.add(h.label));
   }
 
-  // Interpolate each horse
-  return Array.from(horseIds)
-    .map((horseId) => interpolateHorse(horseId, currentFrame, nextFrame, t))
+  // Interpolate each horse by label
+  return Array.from(horseLabels)
+    .map((horseLabel) => interpolateHorse(horseLabel, currentFrame, nextFrame, t))
     .filter((horse): horse is Horse => horse !== null);
 };
 
