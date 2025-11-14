@@ -1,6 +1,6 @@
 import { useDrillStore } from '../../stores/drillStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { GAITS, Gait } from '../../types';
+import { GAITS, Gait, Horse } from '../../types';
 
 export default function PropertiesPanel() {
   const currentFrame = useDrillStore((state) => state.getCurrentFrame());
@@ -18,7 +18,7 @@ export default function PropertiesPanel() {
 
   const handleUpdateHorse = (updates: Partial<typeof selectedHorse>) => {
     if (!currentFrame || !selectedHorse) return;
-    updateHorseInFrame(currentFrame.id, selectedHorse.id, updates);
+    updateHorseInFrame(currentFrame.id, selectedHorse.id, updates as Partial<Horse>);
   };
 
   const handleDirectionChange = (degrees: number) => {

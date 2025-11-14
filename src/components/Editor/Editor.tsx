@@ -71,7 +71,7 @@ export default function Editor() {
 
     // Use ResizeObserver to watch both the parent flex container and the canvas container
     // This ensures we detect when the flex layout changes (e.g., when window resizes)
-    const resizeObserver = new ResizeObserver((entries) => {
+    const resizeObserver = new ResizeObserver((_entries) => {
       // Use requestAnimationFrame to ensure we get dimensions after DOM updates
       // This is especially important when the window decreases in size
       requestAnimationFrame(() => {

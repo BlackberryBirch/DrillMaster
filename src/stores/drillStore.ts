@@ -565,8 +565,14 @@ export const useDrillStore = create<DrillStore>()(
     const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
     useHistoryStore.getState().push({
       description: 'Set audio track',
-      previousDrill,
-      newDrill: newDrillCopy,
+      undo: () => {
+        const { setDrill } = get();
+        setDrill(previousDrill, true, true);
+      },
+      redo: () => {
+        const { setDrill } = get();
+        setDrill(newDrillCopy, true, true);
+      },
     });
   },
 
@@ -588,8 +594,14 @@ export const useDrillStore = create<DrillStore>()(
     const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
     useHistoryStore.getState().push({
       description: 'Remove audio track',
-      previousDrill,
-      newDrill: newDrillCopy,
+      undo: () => {
+        const { setDrill } = get();
+        setDrill(previousDrill, true, true);
+      },
+      redo: () => {
+        const { setDrill } = get();
+        setDrill(newDrillCopy, true, true);
+      },
     });
   },
 

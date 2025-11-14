@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { Drill, Frame, Horse } from '../types';
 
 export interface HistoryEntry {
   id: string;

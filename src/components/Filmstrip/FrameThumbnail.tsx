@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Stage, Layer, Rect, Line, Circle, Text } from 'react-konva';
+import { Stage, Layer, Rect, Line, Circle } from 'react-konva';
 import { Frame } from '../../types';
 import { getGridLines, pointToCanvas } from '../../utils/arena';
 import { GAIT_COLORS } from '../../types';

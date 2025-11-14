@@ -4,5 +4,19 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    outDir: 'dist',
+    sourcemap: false, // Disable sourcemaps in production for smaller builds
+    minify: 'esbuild', // Fast minification
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          konva: ['konva', 'react-konva'],
+          supabase: ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
 })
 
