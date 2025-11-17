@@ -1,9 +1,16 @@
+import { useState, useRef, useEffect } from 'react';
 import { useAnimationStore } from '../../stores/animationStore';
 import { useDrillStore } from '../../stores/drillStore';
 import { useAnimation } from '../../hooks/useAnimation';
 import { useAudio } from '../../hooks/useAudio';
 
 export default function AnimationControls() {
+  const [showAudioPopup, setShowAudioPopup] = useState(false);
+  const [showSpeedPopup, setShowSpeedPopup] = useState(false);
+  const audioPopupRef = useRef<HTMLDivElement>(null);
+  const speedPopupRef = useRef<HTMLDivElement>(null);
+  const audioButtonRef = useRef<HTMLButtonElement>(null);
+  const speedButtonRef = useRef<HTMLButtonElement>(null);
   const state = useAnimationStore((state) => state.state);
   const play = useAnimationStore((state) => state.play);
   const pause = useAnimationStore((state) => state.pause);
@@ -41,19 +48,55 @@ export default function AnimationControls() {
     setCurrentTime(nextFrame.timestamp);
   };
 
+  // Close popups when clicking outside or on the button again
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      
+      // Check if click is on audio button or inside audio popup
+      if (showAudioPopup) {
+        const isAudioButton = audioButtonRef.current?.contains(target);
+        const isAudioPopup = audioPopupRef.current?.contains(target);
+        if (!isAudioButton && !isAudioPopup) {
+          setShowAudioPopup(false);
+        }
+      }
+      
+      // Check if click is on speed button or inside speed popup
+      if (showSpeedPopup) {
+        const isSpeedButton = speedButtonRef.current?.contains(target);
+        const isSpeedPopup = speedPopupRef.current?.contains(target);
+        if (!isSpeedButton && !isSpeedPopup) {
+          setShowSpeedPopup(false);
+        }
+      }
+    };
+
+    if (showAudioPopup || showSpeedPopup) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAudioPopup, showSpeedPopup]);
+
+  const isMuted = !audioEnabled || audioVolume === 0;
+
   return (
     <div className="px-4 py-2 flex items-center gap-4">
       {/* Playback Controls */}
       <div className="flex items-center gap-2">
         <button
           onClick={state === 'playing' ? pause : play}
-          className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
         >
           {state === 'playing' ? '⏸ Pause' : '▶ Play'}
         </button>
         <button
           onClick={stop}
-          className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+          disabled={state === 'stopped'}
+          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
         >
           ⏹ Stop
         </button>
@@ -74,43 +117,84 @@ export default function AnimationControls() {
       </div>
 
       {/* Speed Control */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-700 dark:text-gray-300">Speed:</span>
-        <select
-          value={playbackSpeed}
-          onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-          className="px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded text-sm"
+      <div className="relative">
+        <button
+          ref={speedButtonRef}
+          onClick={() => setShowSpeedPopup(!showSpeedPopup)}
+          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+          title={`Playback Speed: ${playbackSpeed}x`}
         >
-          <option value={0.5}>0.5x</option>
-          <option value={1.0}>1x</option>
-          <option value={1.5}>1.5x</option>
-          <option value={2.0}>2x</option>
-        </select>
+          {playbackSpeed}x
+        </button>
+        
+        {showSpeedPopup && (
+          <div
+            ref={speedPopupRef}
+            className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg p-4 z-50 min-w-[150px]"
+          >
+            <div className="flex flex-col gap-3">
+              <label className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="block mb-2">Playback Speed:</span>
+                <select
+                  value={playbackSpeed}
+                  onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded text-sm"
+                >
+                  <option value={0.5}>0.5x</option>
+                  <option value={1.0}>1x</option>
+                  <option value={1.5}>1.5x</option>
+                  <option value={2.0}>2x</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Audio Controls */}
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input
-            type="checkbox"
-            checked={audioEnabled}
-            onChange={toggleAudio}
-          />
-          Audio
-        </label>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.1"
-          value={audioVolume}
-          onChange={(e) => setAudioVolume(parseFloat(e.target.value))}
-          className="w-20"
-          disabled={!audioEnabled}
-        />
-        <span className="text-xs text-gray-600 dark:text-gray-400 w-8">
-          {Math.round(audioVolume * 100)}%
-        </span>
+      <div className="relative">
+        <button
+          ref={audioButtonRef}
+          onClick={() => setShowAudioPopup(!showAudioPopup)}
+          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+          title="Audio Settings"
+        >
+          {isMuted ? '🔇' : '🔊'}
+        </button>
+        
+        {showAudioPopup && (
+          <div
+            ref={audioPopupRef}
+            className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg p-4 z-50 min-w-[200px]"
+          >
+            <div className="flex flex-col gap-3">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={audioEnabled}
+                  onChange={toggleAudio}
+                />
+                <span>Audio Enabled</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600 dark:text-gray-400 w-12">Volume:</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={audioVolume}
+                  onChange={(e) => setAudioVolume(parseFloat(e.target.value))}
+                  className="flex-1"
+                  disabled={!audioEnabled}
+                />
+                <span className="text-xs text-gray-600 dark:text-gray-400 w-10 text-right">
+                  {Math.round(audioVolume * 100)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Timeline */}

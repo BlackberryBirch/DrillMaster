@@ -272,7 +272,7 @@ export default function Editor() {
     const newZoom = Math.max(0.5, Math.min(3.0, initialZoom * distanceRatio));
 
     // Calculate the arena dimensions for coordinate conversion
-    const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height - 60);
+    const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height);
 
     // Convert initial center from canvas coordinates to arena coordinates
     // This represents the point in the arena that was under the initial pinch center
@@ -294,7 +294,7 @@ export default function Editor() {
     pinchStateRef.current = null;
   }, []);
 
-  const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height - 60);
+  const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height);
   const theme = useThemeStore((state) => state.theme);
 
   return (

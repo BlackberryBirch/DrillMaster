@@ -43,33 +43,34 @@ describe('arena utilities', () => {
   });
 
   describe('calculateArenaDimensions', () => {
-    it('should maintain aspect ratio when container is wider', () => {
+    it('should scale based on height with 10px padding when container matches aspect ratio', () => {
       const result = calculateArenaDimensions(400, 200);
       // Arena aspect ratio is 2:1 (length:width)
-      // Container is 2:1, so height should be 200, width should be 400
-      expect(result.height).toBe(200);
-      expect(result.width).toBe(400);
-      expect(result.offsetX).toBe(0);
-      expect(result.offsetY).toBe(0);
+      // Height has 10px padding top and bottom: height=200-20=180, width=180*2=360
+      expect(result.height).toBe(180);
+      expect(result.width).toBe(360);
+      expect(result.offsetX).toBe(20); // (400 - 360) / 2
+      expect(result.offsetY).toBe(10); // 10px top padding
     });
 
-    it('should maintain aspect ratio when container is taller', () => {
+    it('should scale based on height with 10px padding and center horizontally when container is taller', () => {
       const result = calculateArenaDimensions(200, 400);
-      // Container is 1:2, arena is 2:1
-      // Should fit width, so width=200, height=100, offsetY=150
-      expect(result.width).toBe(200);
-      expect(result.height).toBe(100);
-      expect(result.offsetX).toBe(0);
-      expect(result.offsetY).toBe(150);
+      // Height has 10px padding top and bottom: height=400-20=380, width=380*2=760
+      // Arena is wider than container, so it will be centered (may overflow)
+      expect(result.height).toBe(380);
+      expect(result.width).toBe(760);
+      expect(result.offsetX).toBe(-280); // (200 - 760) / 2
+      expect(result.offsetY).toBe(10); // 10px top padding
     });
 
-    it('should center arena when container is wider', () => {
+    it('should scale based on height with 10px padding and center when container is wider', () => {
       const result = calculateArenaDimensions(600, 200);
-      // Container is 3:1, arena should be 400x200, centered
-      expect(result.width).toBe(400);
-      expect(result.height).toBe(200);
-      expect(result.offsetX).toBe(100);
-      expect(result.offsetY).toBe(0);
+      // Height has 10px padding top and bottom: height=200-20=180, width=180*2=360
+      // Arena is narrower than container, so centered horizontally
+      expect(result.width).toBe(360);
+      expect(result.height).toBe(180);
+      expect(result.offsetX).toBe(120); // (600 - 360) / 2
+      expect(result.offsetY).toBe(10); // 10px top padding
     });
   });
 

@@ -31,31 +31,25 @@ export const canvasToPoint = (
 };
 
 /**
- * Calculate arena dimensions maintaining aspect ratio
+ * Calculate arena dimensions based on container height only
+ * Arena is always scaled to fit the height with 10px padding at top and bottom
+ * and centered horizontally
  */
 export const calculateArenaDimensions = (
   containerWidth: number,
   containerHeight: number
 ): { width: number; height: number; offsetX: number; offsetY: number } => {
-  const containerAspect = containerWidth / containerHeight;
   const arenaAspect = ARENA_ASPECT_RATIO;
+  const VERTICAL_PADDING = 10; // 10px padding at top and bottom
 
-  let width: number;
-  let height: number;
-  let offsetX = 0;
-  let offsetY = 0;
-
-  if (containerAspect > arenaAspect) {
-    // Container is wider than arena aspect ratio
-    height = containerHeight;
-    width = height * arenaAspect;
-    offsetX = (containerWidth - width) / 2;
-  } else {
-    // Container is taller than arena aspect ratio
-    width = containerWidth;
-    height = width / arenaAspect;
-    offsetY = (containerHeight - height) / 2;
-  }
+  // Scale based on height, accounting for 10px padding at top and bottom
+  const height = containerHeight - (VERTICAL_PADDING * 2);
+  const width = height * arenaAspect;
+  
+  // Center horizontally if arena is narrower than container
+  const offsetX = (containerWidth - width) / 2;
+  // Position with 10px padding at the top
+  const offsetY = VERTICAL_PADDING;
 
   return { width, height, offsetX, offsetY };
 };

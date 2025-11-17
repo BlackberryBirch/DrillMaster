@@ -5,7 +5,12 @@ import { fileIO } from '../../utils/fileIO';
 import AuthButton from '../Auth/AuthButton';
 import Logo from './Logo';
 
-export default function Toolbar() {
+interface ToolbarProps {
+  onTogglePropertiesPanel?: () => void;
+  showPropertiesPanel?: boolean;
+}
+
+export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel = false }: ToolbarProps) {
   const drill = useDrillStore((state) => state.drill);
   const setDrill = useDrillStore((state) => state.setDrill);
   const createNewDrill = useDrillStore((state) => state.createNewDrill);
@@ -78,32 +83,32 @@ export default function Toolbar() {
   const canRedo = useHistoryStore((state) => state.canRedo);
 
   return (
-    <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-4 py-2 flex items-center gap-2">
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-4 py-2 flex flex-wrap items-center gap-2">
       <Logo className="mr-2" size={32} />
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
       <button
         onClick={handleNew}
-        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
       >
         New
       </button>
       <button
         onClick={handleLoad}
-        className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
       >
         Load
       </button>
       <button
         onClick={handleSave}
         disabled={!drill}
-        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
       >
         Save
       </button>
       <button
         onClick={handleLoadAudio}
         disabled={!drill}
-        className="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
         title="Load audio file"
       >
         🎵 Load Audio
@@ -139,6 +144,19 @@ export default function Toolbar() {
         <span className="text-sm text-gray-600 dark:text-gray-300">{drill.name}</span>
       )}
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
+      {onTogglePropertiesPanel && (
+        <button
+          onClick={onTogglePropertiesPanel}
+          className={`px-3 py-1 rounded ${
+            showPropertiesPanel
+              ? 'bg-blue-500 text-white hover:bg-blue-600'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
+          }`}
+          title="Toggle Properties Panel"
+        >
+          ⚙️ Properties
+        </button>
+      )}
       <AuthButton />
       <button
         onClick={toggleTheme}

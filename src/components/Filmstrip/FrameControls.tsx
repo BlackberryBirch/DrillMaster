@@ -27,21 +27,21 @@ export default function FrameControls() {
     <div className="px-4 py-1 bg-gray-200 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 flex items-center gap-2">
       <button
         onClick={addFrame}
-        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+        className="px-2 py-1 bg-gray-500 dark:bg-gray-600 text-white text-xs rounded hover:bg-gray-600 dark:hover:bg-gray-700"
       >
         + Add Frame
       </button>
       <button
         onClick={handleDuplicate}
         disabled={!currentFrame}
-        className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        className="px-2 py-1 bg-gray-500 dark:bg-gray-600 text-white text-xs rounded hover:bg-gray-600 dark:hover:bg-gray-700 disabled:bg-gray-400 dark:disabled:bg-gray-500 disabled:cursor-not-allowed"
       >
         Duplicate
       </button>
       <button
         onClick={handleDelete}
         disabled={!currentFrame || (drill?.frames.length || 0) <= 1}
-        className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        className="px-2 py-1 bg-gray-500 dark:bg-gray-600 text-white text-xs rounded hover:bg-gray-600 dark:hover:bg-gray-700 disabled:bg-gray-400 dark:disabled:bg-gray-500 disabled:cursor-not-allowed"
       >
         Delete
       </button>

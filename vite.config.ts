@@ -16,6 +16,20 @@ export default defineConfig({
           supabase: ['@supabase/supabase-js'],
         },
       },
+      onwarn(warning, warn) {
+        // Ignore warnings from node_modules (third-party dependencies)
+        const isFromNodeModules = 
+          (warning.id && warning.id.includes('node_modules')) ||
+          (warning.message && warning.message.includes('node_modules'));
+        
+        // Ignore circular dependency warnings from node_modules
+        if (isFromNodeModules || (warning.code === 'CIRCULAR_DEPENDENCY' && warning.message?.includes('node_modules'))) {
+          return;
+        }
+        
+        // Treat all other warnings as errors
+        throw new Error(`Build warning: ${warning.message}`);
+      },
     },
   },
 })
