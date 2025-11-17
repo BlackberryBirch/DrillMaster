@@ -14,7 +14,6 @@ interface DrillStore {
   createNewDrill: (name: string) => void;
   addFrame: () => void;
   deleteFrame: (frameId: string) => void;
-  duplicateFrame: (frameId: string) => void;
   setCurrentFrame: (index: number) => void;
   updateFrame: (frameId: string, updates: Partial<Frame>) => void;
   addHorseToFrame: (frameId: string, horse: Horse) => void;
@@ -70,35 +69,44 @@ export const useDrillStore = create<DrillStore>()(
   },
 
   addFrame: () => {
-    const { drill } = get();
+    const { drill, currentFrameIndex } = get();
     if (!drill) return;
 
-    const lastFrame = drill.frames[drill.frames.length - 1];
-    const newTimestamp = lastFrame
-      ? lastFrame.timestamp + lastFrame.duration
-      : 0;
+    // If no frames exist or current frame is invalid, use the last frame
+    const frameIndex = currentFrameIndex >= 0 && currentFrameIndex < drill.frames.length
+      ? currentFrameIndex
+      : drill.frames.length - 1;
 
-    const newFrame = createFrame(
-      generateId(),
-      drill.frames.length,
-      newTimestamp,
-      5.0
-    );
+    if (frameIndex < 0) return; // No frames to duplicate
 
-    // Copy horses from previous frame
-    if (lastFrame) {
-      newFrame.horses = lastFrame.horses.map((horse) => ({
-        ...horse,
+    const frameToDuplicate = drill.frames[frameIndex];
+    const newFrame: Frame = {
+      ...frameToDuplicate,
+      id: generateId(),
+      index: frameIndex + 1,
+      timestamp: frameToDuplicate.timestamp + frameToDuplicate.duration,
+      horses: frameToDuplicate.horses.map((h) => ({
+        ...h,
         id: generateId(),
-      }));
-    }
+      })),
+    };
+
+    // Update timestamps of subsequent frames
+    const updatedFrames = [...drill.frames];
+    updatedFrames.splice(frameIndex + 1, 0, newFrame);
+    updatedFrames.forEach((frame, index) => {
+      frame.index = index;
+      if (index > 0) {
+        frame.timestamp = updatedFrames[index - 1].timestamp + updatedFrames[index - 1].duration;
+      }
+    });
 
     set({
       drill: {
         ...drill,
-        frames: [...drill.frames, newFrame],
+        frames: updatedFrames,
       },
-      currentFrameIndex: drill.frames.length,
+      currentFrameIndex: frameIndex + 1,
     });
   },
 
@@ -132,43 +140,6 @@ export const useDrillStore = create<DrillStore>()(
     });
   },
 
-  duplicateFrame: (frameId) => {
-    const { drill } = get();
-    if (!drill) return;
-
-    const frameIndex = drill.frames.findIndex((f) => f.id === frameId);
-    if (frameIndex === -1) return;
-
-    const frameToDuplicate = drill.frames[frameIndex];
-    const newFrame: Frame = {
-      ...frameToDuplicate,
-      id: generateId(),
-      index: frameIndex + 1,
-      timestamp: frameToDuplicate.timestamp + frameToDuplicate.duration,
-      horses: frameToDuplicate.horses.map((h) => ({
-        ...h,
-        id: generateId(),
-      })),
-    };
-
-    // Update timestamps of subsequent frames
-    const updatedFrames = [...drill.frames];
-    updatedFrames.splice(frameIndex + 1, 0, newFrame);
-    updatedFrames.forEach((frame, index) => {
-      frame.index = index;
-      if (index > 0) {
-        frame.timestamp = updatedFrames[index - 1].timestamp + updatedFrames[index - 1].duration;
-      }
-    });
-
-    set({
-      drill: {
-        ...drill,
-        frames: updatedFrames,
-      },
-      currentFrameIndex: frameIndex + 1,
-    });
-  },
 
   setCurrentFrame: (index) => {
     const { drill } = get();

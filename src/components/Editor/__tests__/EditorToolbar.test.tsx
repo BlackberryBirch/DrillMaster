@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '../../../test/testUtils';
 import EditorToolbar from '../EditorToolbar';
 import { useDrillStore } from '../../../stores/drillStore';

@@ -51,7 +51,7 @@ describe('AnimationControls', () => {
     expect(screen.getByTitle('Audio Settings')).toBeInTheDocument();
     // The button contains either 🔊 or 🔇 emoji
     const audioButton = screen.getByTitle('Audio Settings');
-    expect(audioButton.textContent).toMatch(/[🔊🔇]/);
+    expect(audioButton.textContent).toMatch(/[🔊🔇]/u);
   });
 
   it('should disable previous frame button at start', () => {

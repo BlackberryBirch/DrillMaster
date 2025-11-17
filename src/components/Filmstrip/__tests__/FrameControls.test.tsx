@@ -26,19 +26,18 @@ describe('FrameControls', () => {
     render(<FrameControls />);
     
     expect(screen.getByText('+ Add Frame')).toBeInTheDocument();
-    expect(screen.getByText('Duplicate')).toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
   });
 
-  it('should disable duplicate and delete when no frame selected', () => {
+  it('should disable add frame and delete when no frames exist', () => {
     useDrillStore.setState({ drill: null });
 
     render(<FrameControls />);
     
-    const duplicateButton = screen.getByText('Duplicate');
+    const addFrameButton = screen.getByText('+ Add Frame');
     const deleteButton = screen.getByText('Delete');
     
-    expect(duplicateButton).toBeDisabled();
+    expect(addFrameButton).toBeDisabled();
     expect(deleteButton).toBeDisabled();
   });
 

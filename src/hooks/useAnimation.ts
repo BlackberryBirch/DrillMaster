@@ -73,5 +73,6 @@ export function useAnimation() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animationState, playbackSpeed, drill, setCurrentTime, stop, setCurrentFrame]);
 }

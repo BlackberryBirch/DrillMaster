@@ -115,8 +115,8 @@ export const lerpAngle = (start: number, end: number, t: number): number => {
     return angle;
   };
 
-  let startNorm = normalize(start);
-  let endNorm = normalize(end);
+  const startNorm = normalize(start);
+  const endNorm = normalize(end);
 
   // Find shortest path
   let diff = endNorm - startNorm;

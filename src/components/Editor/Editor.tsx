@@ -96,6 +96,7 @@ export default function Editor() {
 
     // Use ResizeObserver to watch both the parent flex container and the canvas container
     // This ensures we detect when the flex layout changes (e.g., when window resizes)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const resizeObserver = new ResizeObserver((_entries) => {
       // Use requestAnimationFrame to ensure we get dimensions after DOM updates
       // This is especially important when the window decreases in size
@@ -202,6 +203,7 @@ export default function Editor() {
   }, [currentFrame, selectedHorseIds, alignHorsesHorizontally, alignHorsesVertically, distributeHorsesEvenly, undo, redo, canUndo, canRedo]);
 
   // Handle pinch zoom
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleTouchStart = useCallback((e: any) => {
     const nativeEvent = e.evt || e;
     const touches = nativeEvent.touches;
@@ -238,6 +240,7 @@ export default function Editor() {
     };
   }, [zoom, pan, containerElement]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleTouchMove = useCallback((e: any) => {
     const nativeEvent = e.evt || e;
     const touches = nativeEvent.touches;
@@ -295,6 +298,7 @@ export default function Editor() {
   }, []);
 
   // Handle mousewheel zoom
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleWheel = useCallback((e: any) => {
     const nativeEvent = e.evt || e;
     

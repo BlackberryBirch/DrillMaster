@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useDrillStore } from '../drillStore';
-import { createHorse, createFrame, createDrill } from '../../types';
+import { createHorse, createDrill } from '../../types';
 import { generateId } from '../../utils/uuid';
 
 describe('drillStore', () => {
@@ -36,29 +36,57 @@ describe('drillStore', () => {
   });
 
   describe('addFrame', () => {
-    it('should add a new frame', () => {
-      useDrillStore.getState().createNewDrill('Test Drill');
-      useDrillStore.getState().addFrame();
-
-      const drill = useDrillStore.getState().drill;
-      expect(drill?.frames).toHaveLength(2);
-      expect(drill?.frames[1].index).toBe(1);
-      expect(drill?.frames[1].timestamp).toBe(drill?.frames[0].duration);
-    });
-
-    it('should copy horses from previous frame', () => {
+    it('should duplicate the current frame', () => {
       useDrillStore.getState().createNewDrill('Test Drill');
       const frame0 = useDrillStore.getState().getCurrentFrame();
       if (frame0) {
+        useDrillStore.getState().updateFrame(frame0.id, { duration: 10.0 });
         const horse = createHorse(generateId(), 1, { x: 0.5, y: 0.5 });
         useDrillStore.getState().addHorseToFrame(frame0.id, horse);
       }
 
       useDrillStore.getState().addFrame();
 
-      const frame1 = useDrillStore.getState().drill?.frames[1];
-      expect(frame1?.horses).toHaveLength(1);
-      expect(frame1?.horses[0].position).toEqual({ x: 0.5, y: 0.5 });
+      const drill = useDrillStore.getState().drill;
+      expect(drill?.frames).toHaveLength(2);
+      expect(drill?.frames[1].index).toBe(1);
+      expect(drill?.frames[1].timestamp).toBe(drill?.frames[0].duration);
+      // Should duplicate duration
+      expect(drill?.frames[1].duration).toBe(10.0);
+      // Should copy horses
+      expect(drill?.frames[1].horses).toHaveLength(1);
+      expect(drill?.frames[1].horses[0].position).toEqual({ x: 0.5, y: 0.5 });
+      // Should select the new frame
+      expect(useDrillStore.getState().currentFrameIndex).toBe(1);
+    });
+
+    it('should insert duplicate immediately after current frame', () => {
+      useDrillStore.getState().createNewDrill('Test Drill');
+      useDrillStore.getState().addFrame(); // Add second frame (frame 0 gets duplicated)
+      useDrillStore.getState().setCurrentFrame(0); // Select first frame
+      useDrillStore.getState().addFrame(); // Duplicate first frame
+
+      const drill = useDrillStore.getState().drill;
+      expect(drill?.frames).toHaveLength(3);
+      // New frame should be at index 1 (right after frame 0)
+      expect(drill?.frames[1].index).toBe(1);
+      // Third frame should now be at index 2
+      expect(drill?.frames[2].index).toBe(2);
+      expect(useDrillStore.getState().currentFrameIndex).toBe(1);
+    });
+
+    it('should use last frame if current frame is invalid', () => {
+      useDrillStore.getState().createNewDrill('Test Drill');
+      useDrillStore.getState().addFrame(); // Create second frame
+      // Set invalid current frame index
+      useDrillStore.getState().setCurrentFrame(10);
+
+      useDrillStore.getState().addFrame();
+
+      const drill = useDrillStore.getState().drill;
+      expect(drill?.frames).toHaveLength(3);
+      // Should have duplicated the last frame (index 1), so new frame is at index 2
+      expect(useDrillStore.getState().currentFrameIndex).toBe(2);
     });
   });
 
@@ -94,25 +122,6 @@ describe('drillStore', () => {
     });
   });
 
-  describe('duplicateFrame', () => {
-    it('should duplicate a frame', () => {
-      useDrillStore.getState().createNewDrill('Test Drill');
-      const frame0 = useDrillStore.getState().getCurrentFrame();
-      if (frame0) {
-        const horse = createHorse(generateId(), 1, { x: 0.5, y: 0.5 });
-        useDrillStore.getState().addHorseToFrame(frame0.id, horse);
-      }
-
-      if (frame0) {
-        useDrillStore.getState().duplicateFrame(frame0.id);
-      }
-
-      const drill = useDrillStore.getState().drill;
-      expect(drill?.frames).toHaveLength(2);
-      expect(drill?.frames[1].horses).toHaveLength(1);
-      expect(useDrillStore.getState().currentFrameIndex).toBe(1);
-    });
-  });
 
   describe('setCurrentFrame', () => {
     it('should set current frame index', () => {

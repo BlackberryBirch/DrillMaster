@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { JSONFileFormatAdapter, FileIO } from '../fileIO';
-import { Drill, createDrill, createFrame } from '../../types';
+import { createDrill, createFrame } from '../../types';
 import { generateId } from '../uuid';
 
 describe('JSONFileFormatAdapter', () => {
@@ -111,10 +111,12 @@ describe('FileIO', () => {
       click: mockClick,
       href: '',
       download: '',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
 
     global.URL.createObjectURL = mockCreateObjectURL;
     global.URL.revokeObjectURL = mockRevokeObjectURL;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any);
     vi.spyOn(document.body, 'appendChild').mockImplementation(mockAppendChild);
     vi.spyOn(document.body, 'removeChild').mockImplementation(mockRemoveChild);

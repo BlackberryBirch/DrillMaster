@@ -6,7 +6,7 @@ import { useThemeStore } from '../../stores/themeStore';
 import { useAnimationStore } from '../../stores/animationStore';
 import { getGridLines, canvasToPoint, pointToCanvas } from '../../utils/arena';
 import { getInterpolatedHorses } from '../../utils/animation';
-import { Horse } from '../../types';
+import { Horse, Gait } from '../../types';
 import HorseRenderer from './HorseRenderer';
 
 interface ArenaCanvasProps {
@@ -128,6 +128,7 @@ export default function ArenaCanvas({
   };
 
   // Handler for arrow drag - updates direction and speed
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleArrowDragStart = (_horseId: string) => {
     if (!currentFrame) return;
     // Store initial state for history if needed
@@ -142,7 +143,7 @@ export default function ArenaCanvas({
     // Update horse direction and speed in real-time (skip history during drag)
     updateHorseInFrame(currentFrame.id, horseId, {
       direction,
-      speed: speed as any,
+      speed: speed as Gait,
     }, true); // Skip history during drag
   };
 
@@ -168,7 +169,7 @@ export default function ArenaCanvas({
     // Now apply final direction and speed with history
     updateHorseInFrame(frameAfterRestore.id, horseId, {
       direction,
-      speed: speed as any,
+      speed: speed as Gait,
     }, false); // Record history on drag end
   };
 
@@ -281,6 +282,7 @@ export default function ArenaCanvas({
   }, [animationState, drill, animationTime, currentFrame]);
 
   // Handle arena background click - deselect all horses
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleArenaClick = (e: any) => {
     // Don't allow selection during animation
     if (animationState === 'playing') return;
@@ -294,6 +296,7 @@ export default function ArenaCanvas({
   };
 
   // Handle arena drag start - begin selection rectangle
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleArenaDragStart = (e: any) => {
     // Don't allow selection during animation
     if (animationState === 'playing') return;
@@ -498,6 +501,7 @@ export default function ArenaCanvas({
             draggable={animationState !== 'playing'}
             canvasWidth={width}
             canvasHeight={height}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onClick={(e: any) => {
               // Don't allow selection during animation
               if (animationState === 'playing') return;

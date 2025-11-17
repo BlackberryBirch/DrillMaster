@@ -16,7 +16,7 @@ export default defineConfig({
           supabase: ['@supabase/supabase-js'],
         },
       },
-      onwarn(warning, warn) {
+      onwarn(warning) {
         // Ignore warnings from node_modules (third-party dependencies)
         const isFromNodeModules = 
           (warning.id && warning.id.includes('node_modules')) ||

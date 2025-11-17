@@ -156,6 +156,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   signInWithOAuth: async (provider) => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         provider: provider as any, // Supabase types may not include all providers
         options: {
           redirectTo: `${window.location.origin}${window.location.pathname}`,

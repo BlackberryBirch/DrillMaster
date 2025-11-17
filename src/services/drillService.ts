@@ -164,6 +164,7 @@ export class DrillService {
       };
 
       if (input.name !== undefined) updateData.name = input.name;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (input.drill_data !== undefined) updateData.drill_data = input.drill_data as any;
       if (input.audio_url !== undefined) updateData.audio_url = input.audio_url || null;
       if (input.audio_filename !== undefined) updateData.audio_filename = input.audio_filename || null;

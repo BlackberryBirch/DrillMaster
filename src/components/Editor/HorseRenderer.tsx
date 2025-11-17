@@ -27,7 +27,8 @@ interface HorseRendererProps {
   onDrag: (x: number, y: number) => void;
   onDragStart?: () => void;
   onDragMove?: (x: number, y: number) => void;
-  onClick: (e: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onClick: (e: any) => void; // Konva event, not React.MouseEvent
   onArrowDrag?: (direction: number, speed: Gait) => void;
   onArrowDragStart?: () => void;
   onArrowDragMove?: (direction: number, speed: Gait) => void;
@@ -57,6 +58,7 @@ export default function HorseRenderer({
   const hasDraggedRef = React.useRef<boolean>(false);
   const dragStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDragStart = (e: any) => {
     hasDraggedRef.current = false;
     // Store the initial position to detect if mouse actually moved
@@ -68,6 +70,7 @@ export default function HorseRenderer({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDragMove = (e: any) => {
     // During drag, update positions in real-time
     const node = e.target;
@@ -89,6 +92,7 @@ export default function HorseRenderer({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDragEnd = (e: any) => {
     const node = e.target;
     const wasDrag = hasDraggedRef.current;
@@ -138,6 +142,7 @@ export default function HorseRenderer({
   const arrowEndY = 0;
 
   // Handle arrow end drag
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleArrowDragStart = (e: any) => {
     stopEventPropagation(e);
     if (onArrowDragStart) {
@@ -145,6 +150,7 @@ export default function HorseRenderer({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleArrowDragMove = (e: any) => {
     stopEventPropagation(e);
     
@@ -162,6 +168,7 @@ export default function HorseRenderer({
     onArrowDragMove(direction, speed);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleArrowDragEnd = (e: any) => {
     stopEventPropagation(e);
     

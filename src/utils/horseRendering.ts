@@ -75,6 +75,7 @@ export const calculateArrowEndPosition = (
  * Stop event propagation for Konva events
  * Useful for preventing clicks/drags from bubbling up
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const stopEventPropagation = (e: any): void => {
   e.cancelBubble = true;
   if (e.evt) {

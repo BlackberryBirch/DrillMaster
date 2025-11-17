@@ -3,15 +3,19 @@ import { render, RenderOptions } from '@testing-library/react';
 import { vi } from 'vitest';
 
 // Store Stage handlers globally for test access
-let stageHandlers: {
+const stageHandlers: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onTouchStart?: (e: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onTouchMove?: (e: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onTouchEnd?: (e: any) => void;
 } = {};
 
 // Mock Konva since it requires canvas
 vi.mock('react-konva', () => {
   return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Stage: ({ children, onTouchStart, onTouchMove, onTouchEnd }: any) => {
       // Store handlers for test access
       stageHandlers.onTouchStart = onTouchStart;
@@ -19,7 +23,9 @@ vi.mock('react-konva', () => {
       stageHandlers.onTouchEnd = onTouchEnd;
       return <div data-testid="stage">{children}</div>;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Layer: ({ children }: any) => <div data-testid="layer">{children}</div>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Group: ({ children }: any) => <div data-testid="group">{children}</div>,
     Rect: () => <div data-testid="rect" />,
     Circle: () => <div data-testid="circle" />,
@@ -42,6 +48,7 @@ const customRender = (
   return render(ui, { ...options });
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export * from '@testing-library/react';
 export { customRender as render };
 

@@ -55,6 +55,7 @@ export class CloudStorageAdapter implements FileFormatAdapter {
         audio_filename: drill.audioTrack?.filename || undefined,
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let result: DatabaseResult<any>;
       
       if (drillId) {

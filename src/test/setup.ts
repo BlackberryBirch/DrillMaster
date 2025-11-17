@@ -13,6 +13,7 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {
     // Mock implementation
   }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;
 
 // Cleanup after each test

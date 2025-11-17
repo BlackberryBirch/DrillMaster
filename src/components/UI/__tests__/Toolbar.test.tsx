@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '../../../test/testUtils';
+import { render, screen } from '../../../test/testUtils';
 import Toolbar from '../Toolbar';
 import { useDrillStore } from '../../../stores/drillStore';
 import { createDrill } from '../../../types';

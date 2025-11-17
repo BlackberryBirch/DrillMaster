@@ -16,13 +16,16 @@ describe('historyStore', () => {
   it('should allow undoing all the way to the first move', () => {
     const { push, undo, canUndo } = useHistoryStore.getState();
     
-    let state = 0;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let _state = 0;
     
     // Push first entry
     push({
       description: 'First move',
-      undo: () => { state = 0; },
-      redo: () => { state = 1; },
+      undo: () => { 
+        _state = 0;
+      },
+      redo: () => { _state = 1; },
     });
     
     expect(useHistoryStore.getState().currentIndex).toBe(0);
@@ -31,8 +34,8 @@ describe('historyStore', () => {
     // Push second entry
     push({
       description: 'Second move',
-      undo: () => { state = 1; },
-      redo: () => { state = 2; },
+      undo: () => { _state = 1; },
+      redo: () => { _state = 2; },
     });
     
     expect(useHistoryStore.getState().currentIndex).toBe(1);
