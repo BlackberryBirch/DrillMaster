@@ -1,6 +1,7 @@
 import { Drill, FileFormatAdapter } from '../types';
 import { drillService, DrillService } from '../services/drillService';
 import { DatabaseResult } from '../types/database';
+import { supabase } from '../lib/supabase';
 
 /**
  * Cloud Storage Adapter that implements FileFormatAdapter
@@ -39,7 +40,6 @@ export class CloudStorageAdapter implements FileFormatAdapter {
   async saveDrillToCloud(drill: Drill, drillId?: string): Promise<DatabaseResult<string>> {
     try {
       // Check if user is authenticated
-      const { supabase } = await import('../lib/supabase');
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
