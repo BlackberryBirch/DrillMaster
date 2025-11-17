@@ -158,7 +158,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const { error } = await supabase.auth.signInWithOAuth({
         provider: provider as any, // Supabase types may not include all providers
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: `${window.location.origin}${window.location.pathname}`,
         },
       });
 
