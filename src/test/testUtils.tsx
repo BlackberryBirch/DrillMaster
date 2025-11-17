@@ -11,9 +11,8 @@ let stageHandlers: {
 
 // Mock Konva since it requires canvas
 vi.mock('react-konva', () => {
-  const React = require('react');
   return {
-    Stage: ({ children, onTouchStart, onTouchMove, onTouchEnd, ...props }: any) => {
+    Stage: ({ children, onTouchStart, onTouchMove, onTouchEnd }: any) => {
       // Store handlers for test access
       stageHandlers.onTouchStart = onTouchStart;
       stageHandlers.onTouchMove = onTouchMove;
