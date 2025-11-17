@@ -12,7 +12,6 @@ export function useAudio() {
   const audioEnabled = useAnimationStore((state) => state.audioEnabled);
   const audioVolume = useAnimationStore((state) => state.audioVolume);
   const drill = useDrillStore((state) => state.drill);
-  const setCurrentTime = useAnimationStore((state) => state.setCurrentTime);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
