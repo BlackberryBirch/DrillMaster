@@ -41,5 +41,5 @@ npm run dev
 
 ## License
 
-TBD
+MIT License - see [LICENSE](LICENSE) file for details.
 
