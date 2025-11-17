@@ -224,17 +224,17 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex justify-center">
               {enabledProviders.map((provider) => (
                 <button
                   key={provider.id}
                   type="button"
                   onClick={() => handleOAuthSignIn(provider.id)}
                   disabled={loading}
-                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${provider.color}`}
+                  className={`flex items-center justify-center gap-2 px-6 py-2 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${provider.color}`}
                 >
-                  <span>{provider.icon}</span>
-                  <span>{provider.name}</span>
+                  <span className="flex items-center">{provider.icon}</span>
+                  <span>Continue with {provider.name}</span>
                 </button>
               ))}
             </div>

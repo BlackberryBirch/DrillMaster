@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Drill, Frame, Horse, AudioTrack } from '../types';
 import { createDrill, createFrame } from '../types';
-import { generateId } from '../utils/uuid';
+import { generateId, generateShortId } from '../utils/uuid';
 import { useHistoryStore } from './historyStore';
 
 interface DrillStore {
@@ -60,7 +60,7 @@ export const useDrillStore = create<DrillStore>()(
   },
 
   createNewDrill: (name) => {
-    const newDrill = createDrill(generateId(), name);
+    const newDrill = createDrill(generateShortId(), name);
     const firstFrame = createFrame(generateId(), 0, 0, 5.0);
     newDrill.frames = [firstFrame];
     set({ drill: newDrill, currentFrameIndex: 0 });

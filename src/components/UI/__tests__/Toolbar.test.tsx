@@ -10,7 +10,22 @@ vi.mock('../../../utils/fileIO', () => ({
     saveDrill: vi.fn(),
     loadDrill: vi.fn(),
   },
+  JSONFileFormatAdapter: vi.fn().mockImplementation(() => ({
+    serialize: vi.fn(),
+    deserialize: vi.fn(),
+    validate: vi.fn(),
+    getFileExtension: vi.fn(() => '.drill.json'),
+  })),
 }));
+
+// Mock react-router-dom
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+  };
+});
 
 describe('Toolbar', () => {
   beforeEach(() => {
@@ -26,13 +41,14 @@ describe('Toolbar', () => {
     
     expect(screen.getByText('New')).toBeInTheDocument();
     expect(screen.getByText('Load')).toBeInTheDocument();
-    expect(screen.getByText('Save')).toBeInTheDocument();
+    // Save button text may vary based on auth state, so check for button containing "Save"
+    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
   });
 
   it('should disable save when no drill', () => {
     render(<Toolbar />);
     
-    const saveButton = screen.getByText('Save');
+    const saveButton = screen.getByRole('button', { name: /save/i });
     expect(saveButton).toBeDisabled();
   });
 
@@ -42,7 +58,7 @@ describe('Toolbar', () => {
 
     render(<Toolbar />);
     
-    const saveButton = screen.getByText('Save');
+    const saveButton = screen.getByRole('button', { name: /save/i });
     expect(saveButton).not.toBeDisabled();
   });
 

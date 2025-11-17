@@ -1,9 +1,10 @@
 interface LogoProps {
   className?: string;
   size?: number;
+  showText?: boolean;
 }
 
-export default function Logo({ className = '', size = 32 }: LogoProps) {
+export default function Logo({ className = '', size = 32, showText = false }: LogoProps) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <svg 
@@ -36,9 +37,11 @@ export default function Logo({ className = '', size = 32 }: LogoProps) {
         <circle cx="25" cy="12" r="1.5" fill="white" opacity="0.8"/>
         <circle cx="20" cy="10" r="1.5" fill="white" opacity="0.8"/>
       </svg>
-      <span className="text-lg font-bold text-gray-900 dark:text-gray-100 hidden sm:inline">
-        Horse Show Editor
-      </span>
+      {(showText || size > 60) && (
+        <span className={`text-lg font-bold text-gray-900 dark:text-gray-100 ${size > 60 ? 'text-2xl' : ''}`}>
+          Horse Show Editor
+        </span>
+      )}
     </div>
   );
 }

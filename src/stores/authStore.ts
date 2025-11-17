@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
@@ -20,11 +21,13 @@ interface AuthStore {
   signInWithOAuth: (provider: 'google' | 'github' | 'microsoft' | 'discord' | 'apple') => Promise<{ error: Error | null }>;
 }
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
-  user: null,
-  session: null,
-  loading: true,
-  initialized: false,
+export const useAuthStore = create<AuthStore>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      session: null,
+      loading: true,
+      initialized: false,
 
   setUser: (user) => set({ user }),
   setSession: (session) => set({ session }),
@@ -36,7 +39,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ loading: true });
     
     try {
-      // Check for existing session
+      // Check for existing session from Supabase (handles localStorage persistence)
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -45,6 +48,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return;
       }
 
+      // Update store with session from Supabase
+      // This will also update the persisted state via Zustand
       set({ 
         user: session?.user ?? null, 
         session: session,
@@ -52,7 +57,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         initialized: true 
       });
 
-      // Listen for auth changes
+      // Listen for auth changes (handles token refresh, sign out, etc.)
       supabase.auth.onAuthStateChange((_event, session) => {
         set({ 
           user: session?.user ?? null,
@@ -176,5 +181,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       };
     }
   },
-}));
+    }),
+    {
+      name: 'auth-storage',
+      // Only persist user and session, not loading/initialized states
+      partialize: (state) => ({
+        user: state.user,
+        session: state.session,
+      }),
+    }
+  )
+);
 

@@ -1,14 +1,17 @@
+import React from 'react';
+import GoogleIcon from '../components/Auth/GoogleIcon';
+
 /**
  * Configuration for OAuth providers
  * These providers can be enabled/disabled in Supabase dashboard
  */
 
-export type OAuthProvider = 'google' | 'github' | 'microsoft' | 'discord' | 'apple';
+export type OAuthProvider = 'google';
 
 export interface AuthProviderConfig {
   id: OAuthProvider;
   name: string;
-  icon: string;
+  icon: React.ReactNode;
   color: string;
   enabled: boolean;
 }
@@ -21,36 +24,8 @@ export const authProviders: AuthProviderConfig[] = [
   {
     id: 'google',
     name: 'Google',
-    icon: '🔵',
-    color: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300',
-    enabled: true,
-  },
-  {
-    id: 'github',
-    name: 'GitHub',
-    icon: '⚫',
-    color: 'bg-gray-900 hover:bg-gray-800 text-white',
-    enabled: true,
-  },
-  {
-    id: 'microsoft',
-    name: 'Microsoft',
-    icon: '🔷',
-    color: 'bg-blue-600 hover:bg-blue-700 text-white',
-    enabled: true,
-  },
-  {
-    id: 'discord',
-    name: 'Discord',
-    icon: '💬',
-    color: 'bg-indigo-600 hover:bg-indigo-700 text-white',
-    enabled: true,
-  },
-  {
-    id: 'apple',
-    name: 'Apple',
-    icon: '🍎',
-    color: 'bg-black hover:bg-gray-900 text-white',
+    icon: React.createElement(GoogleIcon),
+    color: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 dark:border-gray-600',
     enabled: true,
   },
 ];

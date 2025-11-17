@@ -16,15 +16,13 @@ describe('App', () => {
     expect(container).toBeInTheDocument();
   });
 
-  it('should create a default drill on mount', () => {
+  it('should render app with routing', () => {
+    // App no longer creates a default drill on mount
+    // It now uses routing to handle drill creation/loading
     render(<App />);
     
-    // Wait for useEffect to run
-    setTimeout(() => {
-      const drill = useDrillStore.getState().drill;
-      expect(drill).not.toBeNull();
-      expect(drill?.name).toBe('New Drill');
-    }, 0);
+    // Just verify the app renders without errors
+    expect(document.body).toBeInTheDocument();
   });
 });
 

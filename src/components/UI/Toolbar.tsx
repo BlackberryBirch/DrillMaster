@@ -1,9 +1,17 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDrillStore } from '../../stores/drillStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useHistoryStore } from '../../stores/historyStore';
+import { useAuthStore } from '../../stores/authStore';
 import { fileIO } from '../../utils/fileIO';
+import { CloudStorageAdapter } from '../../utils/cloudStorage';
+import { JSONFileFormatAdapter } from '../../utils/fileIO';
 import AuthButton from '../Auth/AuthButton';
 import Logo from './Logo';
+
+// Cloud storage adapter instance
+const cloudAdapter = new CloudStorageAdapter(new JSONFileFormatAdapter());
 
 interface ToolbarProps {
   onTogglePropertiesPanel?: () => void;
@@ -11,11 +19,14 @@ interface ToolbarProps {
 }
 
 export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel = false }: ToolbarProps) {
+  const navigate = useNavigate();
   const drill = useDrillStore((state) => state.drill);
   const setDrill = useDrillStore((state) => state.setDrill);
   const createNewDrill = useDrillStore((state) => state.createNewDrill);
   const setAudioTrack = useDrillStore((state) => state.setAudioTrack);
   const removeAudioTrack = useDrillStore((state) => state.removeAudioTrack);
+  const user = useAuthStore((state) => state.user);
+  const [saving, setSaving] = useState(false);
 
   const handleNew = () => {
     if (confirm('Create a new drill? Unsaved changes will be lost.')) {
@@ -25,10 +36,30 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
 
   const handleSave = async () => {
     if (!drill) return;
-    try {
-      await fileIO.saveDrill(drill);
-    } catch (error) {
-      alert(`Failed to save: ${error}`);
+
+    // If user is authenticated, save to cloud storage
+    if (user) {
+      setSaving(true);
+      try {
+        const result = await cloudAdapter.saveDrillToCloud(drill);
+        if (result.error) {
+          alert(`Failed to save to cloud: ${result.error.message}`);
+        } else {
+          // Success - optionally show a brief success message
+          // The URL will be updated automatically by App.tsx
+        }
+      } catch (error) {
+        alert(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      // User not authenticated - save locally as fallback
+      try {
+        await fileIO.saveDrill(drill);
+      } catch (error) {
+        alert(`Failed to save: ${error}`);
+      }
     }
   };
 
@@ -82,9 +113,20 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
   const canUndo = useHistoryStore((state) => state.canUndo);
   const canRedo = useHistoryStore((state) => state.canRedo);
 
+  const handleLogoClick = () => {
+    navigate('/');
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-4 py-2 flex flex-wrap items-center gap-2">
-      <Logo className="mr-2" size={32} />
+      <button
+        onClick={handleLogoClick}
+        className="mr-2 hover:opacity-80 transition-opacity cursor-pointer"
+        title="Go to home"
+        aria-label="Go to home"
+      >
+        <Logo size={32} />
+      </button>
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
       <button
         onClick={handleNew}
@@ -100,10 +142,11 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
       </button>
       <button
         onClick={handleSave}
-        disabled={!drill}
-        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
+        disabled={!drill || saving}
+        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+        title={user ? 'Save to cloud storage' : 'Save to local file (sign in to save to cloud)'}
       >
-        Save
+        {saving ? 'Saving...' : user ? '💾 Save to Cloud' : '💾 Save'}
       </button>
       <button
         onClick={handleLoadAudio}

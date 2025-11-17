@@ -46,7 +46,7 @@ export class DrillService {
   }
 
   /**
-   * Get a single drill by ID
+   * Get a single drill by database UUID
    */
   async getDrillById(drillId: string): Promise<DatabaseResult<DrillRecord>> {
     try {
@@ -64,6 +64,55 @@ export class DrillService {
         .select('*')
         .eq('id', drillId)
         .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        return {
+          data: null,
+          error: new Error(`Failed to fetch drill: ${error.message}`),
+        };
+      }
+
+      return {
+        data: data as DrillRecord,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error('Unknown error occurred'),
+      };
+    }
+  }
+
+  /**
+   * Get a drill by its short ID (stored in drill_data.id JSONB field)
+   * This is used for URL-based drill access
+   */
+  async getDrillByShortId(shortId: string): Promise<DatabaseResult<DrillRecord>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return {
+          data: null,
+          error: new Error('User not authenticated'),
+        };
+      }
+
+      if (shortId.length > 8) {
+        return {
+          data: null,
+          error: new Error('Short ID is too long'),
+        };
+      }
+
+      // Query JSONB field: drill_data->>'id' = shortId
+      const { data, error } = await supabase
+        .from('drills')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('drill_data->>id', shortId)
         .single();
 
       if (error) {
@@ -241,6 +290,8 @@ export class DrillService {
   static recordToDrill(record: DrillRecord): Drill {
     // Update metadata timestamps from database
     const drill = record.drill_data;
+    // Synchronize drill.id with database record ID (use the short ID from drill_data if it exists, otherwise use DB ID)
+    // The drill.id should be the short ID used in URLs, not the database UUID
     drill.metadata.createdAt = new Date(record.created_at);
     drill.metadata.modifiedAt = new Date(record.updated_at);
     
