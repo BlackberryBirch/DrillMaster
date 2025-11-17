@@ -8,8 +8,6 @@ export default function EditorToolbar() {
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
   const toggleDirectionArrows = useEditorStore((state) => state.toggleDirectionArrows);
   const resetView = useEditorStore((state) => state.resetView);
-  const setZoom = useEditorStore((state) => state.setZoom);
-  const zoom = useEditorStore((state) => state.zoom);
   
   const currentFrame = useDrillStore((state) => state.getCurrentFrame());
   const addHorseToFrame = useDrillStore((state) => state.addHorseToFrame);
@@ -49,20 +47,6 @@ export default function EditorToolbar() {
       </label>
       
       <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
-      
-      <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-        <span>Zoom:</span>
-        <input
-          type="range"
-          min="0.5"
-          max="3"
-          step="0.1"
-          value={zoom}
-          onChange={(e) => setZoom(parseFloat(e.target.value))}
-          className="w-24"
-        />
-        <span className="w-12 text-right">{(zoom * 100).toFixed(0)}%</span>
-      </div>
       
       <button
         onClick={resetView}

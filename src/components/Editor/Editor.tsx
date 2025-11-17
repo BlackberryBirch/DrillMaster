@@ -294,6 +294,56 @@ export default function Editor() {
     pinchStateRef.current = null;
   }, []);
 
+  // Handle mousewheel zoom
+  const handleWheel = useCallback((e: any) => {
+    const nativeEvent = e.evt || e;
+    
+    // Prevent default scrolling behavior
+    if (nativeEvent.preventDefault) {
+      nativeEvent.preventDefault();
+    }
+
+    // Get the container's bounding rect to convert screen coordinates to canvas coordinates
+    const containerRect = containerElement?.getBoundingClientRect();
+    if (!containerRect) return;
+
+    // Get mouse position relative to the container
+    const mouseX = (nativeEvent.clientX || 0) - containerRect.left;
+    const mouseY = (nativeEvent.clientY || 0) - containerRect.top;
+
+    // Calculate zoom factor from wheel delta
+    // Use deltaY for standard wheel, normalize to a reasonable zoom step
+    const delta = nativeEvent.deltaY || 0;
+    // Normalize delta to a zoom step (negative delta = zoom in, positive = zoom out)
+    // Use a smaller step for smoother zooming
+    const zoomStep = 0.05;
+    const zoomFactor = 1 - (delta > 0 ? zoomStep : -zoomStep);
+    
+    // Calculate new zoom with limits
+    const newZoom = Math.max(0.5, Math.min(3.0, zoom * zoomFactor));
+
+    // If zoom didn't change (hit limits), don't update pan
+    if (newZoom === zoom) return;
+
+    // Calculate the arena dimensions for coordinate conversion
+    const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height);
+
+    // Convert mouse position from canvas coordinates to arena coordinates
+    // This represents the point in the arena that is under the mouse cursor
+    const arenaX = (mouseX - (arenaDims.offsetX + pan.x)) / zoom;
+    const arenaY = (mouseY - (arenaDims.offsetY + pan.y)) / zoom;
+
+    // Calculate new pan to keep the arena point under the mouse cursor fixed
+    // The arena point should remain under the mouse cursor after zoom
+    const newPan = {
+      x: mouseX - (arenaDims.offsetX + arenaX * newZoom),
+      y: mouseY - (arenaDims.offsetY + arenaY * newZoom),
+    };
+
+    setZoom(newZoom);
+    setPan(newPan);
+  }, [zoom, pan, containerElement, dimensions, setZoom, setPan]);
+
   const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height);
   const theme = useThemeStore((state) => state.theme);
 
@@ -312,6 +362,7 @@ export default function Editor() {
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onWheel={handleWheel}
         >
           <Layer>
             <ArenaCanvas

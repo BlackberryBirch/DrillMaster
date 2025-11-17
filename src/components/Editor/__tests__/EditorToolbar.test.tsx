@@ -38,19 +38,5 @@ describe('EditorToolbar', () => {
     
     expect(screen.getByText(/Frame 1 \/ 1/)).toBeInTheDocument();
   });
-
-  it('should have zoom control', () => {
-    const drill = createDrill('test-id', 'Test Drill');
-    drill.frames = [createFrame(generateId(), 0, 0, 5.0)];
-    useDrillStore.setState({ drill });
-
-    render(<EditorToolbar />);
-    
-    // Zoom control has a span with "Zoom:" text and a range input
-    expect(screen.getByText('Zoom:')).toBeInTheDocument();
-    const zoomInput = screen.getByRole('slider');
-    expect(zoomInput).toBeInTheDocument();
-    expect(zoomInput).toHaveAttribute('type', 'range');
-  });
 });
 

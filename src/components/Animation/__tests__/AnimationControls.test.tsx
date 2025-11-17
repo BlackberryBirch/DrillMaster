@@ -39,13 +39,19 @@ describe('AnimationControls', () => {
   it('should render speed control', () => {
     render(<AnimationControls />);
     
-    expect(screen.getByText('Speed:')).toBeInTheDocument();
+    // Speed control shows the speed value (e.g., "1x") in a button
+    expect(screen.getByText('1x')).toBeInTheDocument();
+    expect(screen.getByTitle('Playback Speed: 1x')).toBeInTheDocument();
   });
 
   it('should render audio controls', () => {
     render(<AnimationControls />);
     
-    expect(screen.getByText('Audio')).toBeInTheDocument();
+    // Audio control shows an emoji button with title "Audio Settings"
+    expect(screen.getByTitle('Audio Settings')).toBeInTheDocument();
+    // The button contains either 🔊 or 🔇 emoji
+    const audioButton = screen.getByTitle('Audio Settings');
+    expect(audioButton.textContent).toMatch(/[🔊🔇]/);
   });
 
   it('should disable previous frame button at start', () => {
