@@ -329,12 +329,43 @@ export class DrillService {
           })
           .eq('id', latestVersion.id)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) {
           return {
             data: null,
             error: new Error(`Failed to update drill version: ${error.message}`),
+          };
+        }
+
+        if (!data) {
+          // Row was not found or not updated, create a new version instead
+          const nextVersion = latestVersion.version_number + 1;
+          const { data: newData, error: insertError } = await supabase
+            .from('drill_versions')
+            .insert({
+              drill_id: drillId,
+              user_id: user.id,
+              version_number: nextVersion,
+              drill_data: drill as unknown as Record<string, unknown>,
+              name: drill.name,
+              audio_url: audioUrl || null,
+              audio_filename: audioFilename || null,
+              updated_at: now.toISOString(),
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            return {
+              data: null,
+              error: new Error(`Failed to create drill version: ${insertError.message}`),
+            };
+          }
+
+          return {
+            data: newData as DrillVersionRecord,
+            error: null,
           };
         }
 
