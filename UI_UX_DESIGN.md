@@ -124,7 +124,7 @@
 | Select All | Ctrl/Cmd + A |
 | Deselect | Escape |
 | Undo | Ctrl/Cmd + Z |
-| Redo | Ctrl/Cmd + Shift + Z |
+| Redo | Ctrl/Cmd + Y |
 | Save | Ctrl/Cmd + S |
 | Open | Ctrl/Cmd + O |
 | Toggle Arrows | A |

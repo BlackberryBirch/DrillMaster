@@ -52,7 +52,7 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
         onClick={redo}
         disabled={!canRedo()}
         className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
-        title="Redo (Ctrl/Cmd + Shift + Z)"
+        title="Redo (Ctrl/Cmd + Y)"
       >
         Redo
       </button>

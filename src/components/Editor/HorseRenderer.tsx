@@ -57,6 +57,32 @@ export default function HorseRenderer({
   // Track if an actual drag occurred (mouse moved after mousedown)
   const hasDraggedRef = React.useRef<boolean>(false);
   const dragStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
+  
+  // Track CTRL key state for snapping during arrow drag
+  const ctrlKeyPressedRef = React.useRef<boolean>(false);
+  
+  // Track keyboard state for CTRL key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        ctrlKeyPressedRef.current = true;
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        ctrlKeyPressedRef.current = false;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDragStart = (e: any) => {
@@ -156,13 +182,18 @@ export default function HorseRenderer({
     
     if (!onArrowDragMove) return;
     
+    // Check if CTRL key is pressed (use tracked state as fallback)
+    const nativeEvent = e.evt || e;
+    const shouldSnap = nativeEvent.ctrlKey || nativeEvent.metaKey || ctrlKeyPressedRef.current;
+    
     // Get the new local position of the circle (in horse's local coordinate system)
     const node = e.target;
     const { direction, speed } = calculateDirectionAndSpeedFromDrag(
       node.x(),
       node.y(),
       horse.direction,
-      horseLength
+      horseLength,
+      shouldSnap
     );
     
     onArrowDragMove(direction, speed);
@@ -174,13 +205,18 @@ export default function HorseRenderer({
     
     if (!onArrowDrag) return;
     
+    // Check if CTRL key is pressed (use tracked state as fallback)
+    const nativeEvent = e.evt || e;
+    const shouldSnap = nativeEvent.ctrlKey || nativeEvent.metaKey || ctrlKeyPressedRef.current;
+    
     // Get the new local position of the circle (in horse's local coordinate system)
     const node = e.target;
     const { direction, speed } = calculateDirectionAndSpeedFromDrag(
       node.x(),
       node.y(),
       horse.direction,
-      horseLength
+      horseLength,
+      shouldSnap
     );
     
     onArrowDrag(direction, speed);

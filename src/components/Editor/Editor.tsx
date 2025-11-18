@@ -162,8 +162,8 @@ export default function Editor() {
         return;
       }
 
-      // Ctrl/Cmd + Shift + Z: Redo
-      if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'z' && !e.altKey) {
+      // Ctrl/Cmd + Y: Redo
+      if (ctrlOrCmd && e.key.toLowerCase() === 'y' && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         if (canRedo()) {
           redo();

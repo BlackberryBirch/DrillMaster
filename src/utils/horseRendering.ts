@@ -12,18 +12,31 @@ export const normalizeAngle = (angle: number): number => {
 };
 
 /**
+ * Snap an angle to the nearest 45-degree increment
+ * @param angle - Angle in radians
+ * @returns Angle snapped to nearest multiple of π/4 (45 degrees)
+ */
+export const snapAngleTo45Degrees = (angle: number): number => {
+  const SNAP_INCREMENT = Math.PI / 4; // 45 degrees in radians
+  const snapped = Math.round(angle / SNAP_INCREMENT) * SNAP_INCREMENT;
+  return normalizeAngle(snapped);
+};
+
+/**
  * Calculate direction and speed from arrow drag position
  * @param localX - X position in horse's local coordinate system
  * @param localY - Y position in horse's local coordinate system
  * @param currentDirection - Current horse direction in radians
  * @param horseLength - Length of the horse in pixels
+ * @param snapTo45Degrees - If true, snap direction to 45-degree increments
  * @returns Object with normalized direction and calculated speed
  */
 export const calculateDirectionAndSpeedFromDrag = (
   localX: number,
   localY: number,
   currentDirection: number,
-  horseLength: number
+  horseLength: number,
+  snapTo45Degrees: boolean = false
 ): { direction: number; speed: Gait } => {
   // Calculate vector from horse center (0, 0 in local coords) to arrow end
   const dx = localX;
@@ -33,7 +46,12 @@ export const calculateDirectionAndSpeedFromDrag = (
   // In local coords: positive X = forward (the arrow points along +X axis)
   const localAngle = Math.atan2(dy, dx);
   // The new world direction is the horse's current direction plus the local angle
-  const direction = normalizeAngle(currentDirection + localAngle);
+  let direction = normalizeAngle(currentDirection + localAngle);
+  
+  // Snap to 45-degree increments if requested
+  if (snapTo45Degrees) {
+    direction = snapAngleTo45Degrees(direction);
+  }
 
   // Calculate distance (arrow length)
   const distance = Math.sqrt(dx * dx + dy * dy);
