@@ -343,7 +343,17 @@ export class DrillService {
 
         if (!data) {
           // Row was not found or not updated, create a new version instead
-          const nextVersion = latestVersion.version_number + 1;
+          // Re-query to get the actual latest version number (handles race conditions)
+          const { data: actualLatestVersion } = await supabase
+            .from('drill_versions')
+            .select('version_number')
+            .eq('drill_id', drillId)
+            .eq('user_id', user.id)
+            .order('version_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          const nextVersion = actualLatestVersion ? actualLatestVersion.version_number + 1 : 1;
           // Serialize drill data properly for JSONB (convert Date objects to strings)
           const serializedDrill = JSON.parse(JSON.stringify(drill));
           
@@ -363,6 +373,48 @@ export class DrillService {
             .single();
 
           if (insertError) {
+            // If duplicate key error, retry with next version number
+            if (insertError.code === '23505' && insertError.message.includes('drill_versions_drill_id_version_number_key')) {
+              // Query again and try with the next version
+              const { data: retryLatestVersion } = await supabase
+                .from('drill_versions')
+                .select('version_number')
+                .eq('drill_id', drillId)
+                .eq('user_id', user.id)
+                .order('version_number', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              
+              const retryNextVersion = retryLatestVersion ? retryLatestVersion.version_number + 1 : 1;
+              
+              const { data: retryData, error: retryError } = await supabase
+                .from('drill_versions')
+                .insert({
+                  drill_id: drillId,
+                  user_id: user.id,
+                  version_number: retryNextVersion,
+                  drill_data: serializedDrill,
+                  name: drill.name,
+                  audio_url: audioUrl || null,
+                  audio_filename: audioFilename || null,
+                  updated_at: now.toISOString(),
+                })
+                .select()
+                .single();
+
+              if (retryError) {
+                return {
+                  data: null,
+                  error: new Error(`Failed to create drill version: ${retryError.message}`),
+                };
+              }
+
+              return {
+                data: retryData as DrillVersionRecord,
+                error: null,
+              };
+            }
+            
             return {
               data: null,
               error: new Error(`Failed to create drill version: ${insertError.message}`),
@@ -381,7 +433,17 @@ export class DrillService {
         };
       } else {
         // Create a new version
-        const nextVersion = latestVersion ? latestVersion.version_number + 1 : 1;
+        // Re-query to get the actual latest version number (handles race conditions)
+        const { data: actualLatestVersion } = await supabase
+          .from('drill_versions')
+          .select('version_number')
+          .eq('drill_id', drillId)
+          .eq('user_id', user.id)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        const nextVersion = actualLatestVersion ? actualLatestVersion.version_number + 1 : 1;
         // Serialize drill data properly for JSONB (convert Date objects to strings)
         const serializedDrill = JSON.parse(JSON.stringify(drill));
 
@@ -401,6 +463,48 @@ export class DrillService {
           .single();
 
         if (error) {
+          // If duplicate key error, retry with next version number
+          if (error.code === '23505' && error.message.includes('drill_versions_drill_id_version_number_key')) {
+            // Query again and try with the next version
+            const { data: retryLatestVersion } = await supabase
+              .from('drill_versions')
+              .select('version_number')
+              .eq('drill_id', drillId)
+              .eq('user_id', user.id)
+              .order('version_number', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            const retryNextVersion = retryLatestVersion ? retryLatestVersion.version_number + 1 : 1;
+            
+            const { data: retryData, error: retryError } = await supabase
+              .from('drill_versions')
+              .insert({
+                drill_id: drillId,
+                user_id: user.id,
+                version_number: retryNextVersion,
+                drill_data: serializedDrill,
+                name: drill.name,
+                audio_url: audioUrl || null,
+                audio_filename: audioFilename || null,
+                updated_at: now.toISOString(),
+              })
+              .select()
+              .single();
+
+            if (retryError) {
+              return {
+                data: null,
+                error: new Error(`Failed to create drill version: ${retryError.message}`),
+              };
+            }
+
+            return {
+              data: retryData as DrillVersionRecord,
+              error: null,
+            };
+          }
+          
           return {
             data: null,
             error: new Error(`Failed to create drill version: ${error.message}`),
