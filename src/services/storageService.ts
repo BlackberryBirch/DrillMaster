@@ -5,55 +5,136 @@ import { supabase } from '../lib/supabase';
  */
 export class StorageService {
   private readonly BUCKET_NAME = 'drill-audio';
+  private currentUploadAbortController: AbortController | null = null;
 
   /**
    * Upload an audio file to Supabase Storage
+   * @param file The file to upload
+   * @param drillId The drill ID
+   * @returns Object with promise and abort function
    */
-  async uploadAudioFile(file: File, drillId: string): Promise<{ url: string | null; error: Error | null }> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
+  uploadAudioFile(
+    file: File,
+    drillId: string
+  ): { promise: Promise<{ url: string | null; error: Error | null }>; abort: () => void } {
+    // Create abort controller and cancellation state for this upload
+    const abortController = new AbortController();
+    this.currentUploadAbortController = abortController;
+    
+    let isCancelled = false;
+    let uploadedFilePath: string | null = null;
+    
+    const abort = () => {
+      isCancelled = true;
+      abortController.abort();
+      this.currentUploadAbortController = null;
       
-      if (!user) {
+      // Try to clean up uploaded file if upload was in progress
+      if (uploadedFilePath) {
+        supabase.storage
+          .from(this.BUCKET_NAME)
+          .remove([uploadedFilePath])
+          .catch(() => {
+            // Ignore errors when cleaning up cancelled upload
+          });
+      }
+    };
+
+    const uploadPromise = (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          return {
+            url: null,
+            error: new Error('User not authenticated'),
+          };
+        }
+
+        // Check if cancelled before starting upload
+        if (isCancelled) {
+          return {
+            url: null,
+            error: new Error('Upload cancelled'),
+          };
+        }
+
+        // Create a unique filename: {user_id}/{drillId}/{timestamp}-{originalFilename}
+        // user_id is the root path folder to comply with Supabase storage policies
+        const timestamp = Date.now();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${drillId}/${timestamp}.${fileExt}`;
+
+        // Note: Supabase storage doesn't support AbortController directly,
+        // but we can check cancellation state and clean up if cancelled
+        const { data, error } = await supabase.storage
+          .from(this.BUCKET_NAME)
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        this.currentUploadAbortController = null;
+
+        // Store the uploaded file path for potential cleanup
+        if (data?.path) {
+          uploadedFilePath = data.path;
+        }
+
+        // Check if cancelled after upload completes
+        if (isCancelled) {
+          // Try to delete the uploaded file if it was uploaded before cancellation
+          if (uploadedFilePath) {
+            await supabase.storage
+              .from(this.BUCKET_NAME)
+              .remove([uploadedFilePath])
+              .catch(() => {
+                // Ignore errors when cleaning up cancelled upload
+              });
+          }
+          return {
+            url: null,
+            error: new Error('Upload cancelled'),
+          };
+        }
+
+        if (error) {
+          return {
+            url: null,
+            error: new Error(`Failed to upload file: ${error.message}`),
+          };
+        }
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from(this.BUCKET_NAME)
+          .getPublicUrl(data.path);
+
+        return {
+          url: urlData.publicUrl,
+          error: null,
+        };
+      } catch (error) {
+        this.currentUploadAbortController = null;
+        
+        if (isCancelled || abortController.signal.aborted) {
+          return {
+            url: null,
+            error: new Error('Upload cancelled'),
+          };
+        }
+        
         return {
           url: null,
-          error: new Error('User not authenticated'),
+          error: error instanceof Error ? error : new Error('Unknown error occurred'),
         };
       }
+    })();
 
-      // Create a unique filename: {drillId}/{timestamp}-{originalFilename}
-      const timestamp = Date.now();
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${drillId}/${timestamp}.${fileExt}`;
-
-      const { data, error } = await supabase.storage
-        .from(this.BUCKET_NAME)
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (error) {
-        return {
-          url: null,
-          error: new Error(`Failed to upload file: ${error.message}`),
-        };
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(this.BUCKET_NAME)
-        .getPublicUrl(data.path);
-
-      return {
-        url: urlData.publicUrl,
-        error: null,
-      };
-    } catch (error) {
-      return {
-        url: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    return {
+      promise: uploadPromise,
+      abort,
+    };
   }
 
   /**
@@ -71,9 +152,25 @@ export class StorageService {
       }
 
       // Extract path from URL if full URL is provided
-      const path = filePath.includes('/storage/v1/object/public/') 
-        ? filePath.split('/storage/v1/object/public/')[1]?.split('/').slice(1).join('/')
-        : filePath;
+      // Path structure: {bucket_name}/{user_id}/{drillId}/{filename}
+      // After splitting by bucket name, we need to keep the full path including user_id
+      let path: string;
+      if (filePath.includes('/storage/v1/object/public/')) {
+        // Full URL format: .../storage/v1/object/public/{bucket_name}/{user_id}/{drillId}/{filename}
+        const parts = filePath.split('/storage/v1/object/public/')[1]?.split('/') || [];
+        // Skip bucket name (first part), keep the rest (user_id/drillId/filename)
+        path = parts.slice(1).join('/');
+      } else {
+        path = filePath;
+      }
+
+      // Verify the path starts with user_id for security
+      if (!path.startsWith(`${user.id}/`)) {
+        return {
+          success: false,
+          error: new Error('File path does not belong to current user'),
+        };
+      }
 
       const { error } = await supabase.storage
         .from(this.BUCKET_NAME)

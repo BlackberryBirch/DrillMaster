@@ -1,10 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAnimationStore } from '../../stores/animationStore';
 import { useDrillStore } from '../../stores/drillStore';
+import { useAuthStore } from '../../stores/authStore';
 import { storageService } from '../../services/storageService';
+import { CloudStorageAdapter } from '../../utils/cloudStorage';
+import { JSONFileFormatAdapter } from '../../utils/fileIO';
+import UploadProgressModal from './UploadProgressModal';
+
+const cloudAdapter = new CloudStorageAdapter(new JSONFileFormatAdapter());
 
 export default function AudioControl() {
   const [showAudioPopup, setShowAudioPopup] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadFileName, setUploadFileName] = useState('');
+  const [uploadAbort, setUploadAbort] = useState<(() => void) | null>(null);
   const audioPopupRef = useRef<HTMLDivElement>(null);
   const audioButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -16,6 +25,7 @@ export default function AudioControl() {
   const drill = useDrillStore((state) => state.drill);
   const setAudioTrack = useDrillStore((state) => state.setAudioTrack);
   const removeAudioTrack = useDrillStore((state) => state.removeAudioTrack);
+  const user = useAuthStore((state) => state.user);
 
   const handleLoadAudio = async () => {
     const input = document.createElement('input');
@@ -25,22 +35,67 @@ export default function AudioControl() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file || !drill) return;
 
+      // Show upload modal
+      setIsUploading(true);
+      setUploadFileName(file.name);
+
       try {
         // Upload file to Supabase Storage
-        const uploadResult = await storageService.uploadAudioFile(file, drill.id);
+        const { promise, abort } = storageService.uploadAudioFile(file, drill.id);
+        setUploadAbort(() => abort);
+
+        const uploadResult = await promise;
         
+        // Close modal
+        setIsUploading(false);
+        setUploadFileName('');
+        setUploadAbort(null);
+
         if (uploadResult.error || !uploadResult.url) {
-          alert(`Failed to upload audio file: ${uploadResult.error?.message || 'Unknown error'}`);
+          // Only show error if not cancelled
+          if (uploadResult.error?.message !== 'Upload cancelled') {
+            alert(`Failed to upload audio file: ${uploadResult.error?.message || 'Unknown error'}`);
+          }
           return;
         }
 
         // Set the audio track with the storage URL
         setAudioTrack(uploadResult.url, 0, file.name);
+
+        // Save the drill to cloud storage to update the version with the new audio URL
+        // Get the updated drill from the store after setAudioTrack (Zustand updates are synchronous)
+        if (user) {
+          try {
+            const updatedDrill = useDrillStore.getState().drill;
+            if (updatedDrill) {
+              const saveResult = await cloudAdapter.saveDrillToCloud(updatedDrill);
+              if (saveResult.error) {
+                console.warn('Failed to save drill after audio upload:', saveResult.error);
+                // Don't show error to user as the audio was successfully uploaded
+              }
+            }
+          } catch (error) {
+            console.warn('Error saving drill after audio upload:', error);
+            // Don't show error to user as the audio was successfully uploaded
+          }
+        }
       } catch (error) {
+        setIsUploading(false);
+        setUploadFileName('');
+        setUploadAbort(null);
         alert(`Failed to load audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     };
     input.click();
+  };
+
+  const handleCancelUpload = () => {
+    if (uploadAbort) {
+      uploadAbort();
+      setUploadAbort(null);
+    }
+    setIsUploading(false);
+    setUploadFileName('');
   };
 
   // Close popup when clicking outside or on the button again
@@ -109,14 +164,16 @@ export default function AudioControl() {
                 {Math.round(audioVolume * 100)}%
               </span>
             </div>
-            <button
-              onClick={handleLoadAudio}
-              disabled={!drill}
-              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed text-sm"
-              title="Load audio file"
-            >
-              🎵 Load Audio
-            </button>
+            {!drill?.audioTrack && (
+              <button
+                onClick={handleLoadAudio}
+                disabled={!drill}
+                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed text-sm"
+                title="Load audio file"
+              >
+                🎵 Load Audio
+              </button>
+            )}
             {drill?.audioTrack && (
               <button
                 onClick={() => removeAudioTrack().catch(console.error)}
@@ -129,6 +186,13 @@ export default function AudioControl() {
           </div>
         </div>
       )}
+
+      {/* Upload Progress Modal */}
+      <UploadProgressModal
+        isOpen={isUploading}
+        fileName={uploadFileName}
+        onCancel={handleCancelUpload}
+      />
     </div>
   );
 }

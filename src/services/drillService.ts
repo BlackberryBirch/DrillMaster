@@ -634,13 +634,19 @@ export class DrillService {
     drill.metadata.createdAt = new Date(record.created_at);
     drill.metadata.modifiedAt = new Date(record.updated_at);
     
-    // Restore audio track from version if it exists
+    // Restore audio track from version's audio_url (prioritize this over drill_data)
+    // The audio_url in the version is the source of truth for the audio file location
     if (latestVersion.audio_url) {
+      // Use audio_url from version (this is the stored audio file in cloud storage)
       drill.audioTrack = {
         url: latestVersion.audio_url,
         offset: drill.audioTrack?.offset || 0,
         filename: latestVersion.audio_filename || undefined,
       };
+    } else {
+      // If audio_url is null or undefined, clear the audioTrack
+      // This ensures we don't use stale audio URLs from drill_data
+      drill.audioTrack = undefined;
     }
 
     return drill;
