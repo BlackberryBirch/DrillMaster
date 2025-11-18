@@ -1,88 +1,334 @@
 import { supabase } from '../lib/supabase';
 import { Drill } from '../types/drill';
 import { DrillRecord, CreateDrillInput, UpdateDrillInput, DatabaseResult, DrillVersionRecord } from '../types/database';
+import type { User } from '@supabase/supabase-js';
+
+/**
+ * Configuration constants
+ */
+const CONFIG = {
+  VERSION_UPDATE_THRESHOLD_MS: 15 * 60 * 1000, // 15 minutes
+  SHORT_ID_MAX_LENGTH: 8,
+  DUPLICATE_KEY_ERROR_CODE: '23505',
+  DRILL_VERSIONS_UNIQUE_KEY: 'drill_versions_drill_id_version_number_key',
+} as const;
 
 /**
  * Service for managing drills in Supabase
  */
 export class DrillService {
   /**
+   * Ensure user is authenticated
+   * @returns User object or error result
+   */
+  private async ensureAuthenticated(): Promise<{ user: User; error: null } | { user: null; error: Error }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { user: null, error: new Error('User not authenticated') };
+    }
+    return { user, error: null };
+  }
+
+  /**
+   * Create a standardized error result
+   */
+  private createErrorResult<T>(error: unknown, operation: string): DatabaseResult<T> {
+    if (error instanceof Error) {
+      return {
+        data: null,
+        error: new Error(`Failed to ${operation}: ${error.message}`),
+      };
+    }
+    return {
+      data: null,
+      error: new Error(`Failed to ${operation}: Unknown error occurred`),
+    };
+  }
+
+  /**
+   * Wrap a database operation with error handling
+   */
+  private async wrapDatabaseOperation<T>(
+    operation: () => Promise<DatabaseResult<T>>,
+    operationName: string
+  ): Promise<DatabaseResult<T>> {
+    try {
+      return await operation();
+    } catch (error) {
+      return this.createErrorResult<T>(error, operationName);
+    }
+  }
+
+  /**
+   * Serialize drill data for JSONB storage (converts Date objects to strings)
+   */
+  private serializeDrill(drill: Drill): unknown {
+    return JSON.parse(JSON.stringify(drill));
+  }
+
+  /**
+   * Get the latest version for a drill
+   */
+  private async getLatestVersion(
+    drillId: string,
+    userId: string
+  ): Promise<{ data: { id: string; version_number: number; created_at: string } | null; error: Error | null }> {
+    const { data, error } = await supabase
+      .from('drill_versions')
+      .select('id, version_number, created_at')
+      .eq('drill_id', drillId)
+      .eq('user_id', userId)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, error: new Error(`Failed to fetch latest version: ${error.message}`) };
+    }
+
+    return { data, error: null };
+  }
+
+  /**
+   * Check if existing version should be updated based on age
+   */
+  private shouldUpdateExistingVersion(latestVersion: { created_at: string } | null): boolean {
+    if (!latestVersion || !latestVersion.created_at) {
+      return false;
+    }
+
+    const now = new Date();
+    const versionAge = now.getTime() - new Date(latestVersion.created_at).getTime();
+    return versionAge < CONFIG.VERSION_UPDATE_THRESHOLD_MS;
+  }
+
+  /**
+   * Get the next version number for a drill
+   */
+  private async getNextVersionNumber(drillId: string, userId: string): Promise<number> {
+    const { data: latestVersion } = await supabase
+      .from('drill_versions')
+      .select('version_number')
+      .eq('drill_id', drillId)
+      .eq('user_id', userId)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return latestVersion ? latestVersion.version_number + 1 : 1;
+  }
+
+  /**
+   * Check if error is a duplicate key error
+   */
+  private isDuplicateKeyError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error &&
+      error.code === CONFIG.DUPLICATE_KEY_ERROR_CODE &&
+      typeof error.message === 'string' &&
+      error.message.includes(CONFIG.DRILL_VERSIONS_UNIQUE_KEY)
+    );
+  }
+
+  /**
+   * Update an existing drill version
+   */
+  private async updateExistingVersion(
+    versionId: string,
+    drill: Drill,
+    audioUrl?: string | null,
+    audioFilename?: string | null
+  ): Promise<DatabaseResult<DrillVersionRecord>> {
+    const serializedDrill = this.serializeDrill(drill);
+    const now = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('drill_versions')
+      .update({
+        drill_data: serializedDrill,
+        name: drill.name,
+        audio_url: audioUrl || null,
+        audio_filename: audioFilename || null,
+        updated_at: now,
+      })
+      .eq('id', versionId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      return this.createErrorResult(error, 'update drill version');
+    }
+
+    if (!data) {
+      return {
+        data: null,
+        error: new Error('Version not found or update failed'),
+      };
+    }
+
+    return { data: data as DrillVersionRecord, error: null };
+  }
+
+  /**
+   * Insert a new version with retry logic for duplicate key errors
+   */
+  private async insertVersionWithRetry(
+    drillId: string,
+    userId: string,
+    initialVersionNumber: number,
+    drill: Drill,
+    audioUrl?: string | null,
+    audioFilename?: string | null
+  ): Promise<DatabaseResult<DrillVersionRecord>> {
+    let versionNumber = initialVersionNumber;
+    const serializedDrill = this.serializeDrill(drill);
+    const now = new Date().toISOString();
+
+    // Try inserting with the initial version number
+    const { data, error } = await supabase
+      .from('drill_versions')
+      .insert({
+        drill_id: drillId,
+        user_id: userId,
+        version_number: versionNumber,
+        drill_data: serializedDrill,
+        name: drill.name,
+        audio_url: audioUrl || null,
+        audio_filename: audioFilename || null,
+        updated_at: now,
+      })
+      .select()
+      .single();
+
+    // If duplicate key error, retry with next version number
+    if (error && this.isDuplicateKeyError(error)) {
+      console.log(`[DrillService] Duplicate key error detected, retrying with next version number for drill ${drillId}`);
+      
+      // Get the actual latest version number
+      versionNumber = await this.getNextVersionNumber(drillId, userId);
+      console.log(`[DrillService] Retrying: Creating new version ${versionNumber} for drill ${drillId} (${drill.name})`);
+
+      // Retry insert
+      const { data: retryData, error: retryError } = await supabase
+        .from('drill_versions')
+        .insert({
+          drill_id: drillId,
+          user_id: userId,
+          version_number: versionNumber,
+          drill_data: serializedDrill,
+          name: drill.name,
+          audio_url: audioUrl || null,
+          audio_filename: audioFilename || null,
+          updated_at: now,
+        })
+        .select()
+        .single();
+
+      if (retryError) {
+        console.error(`[DrillService] Failed to create version ${versionNumber} after retry:`, retryError.message);
+        return this.createErrorResult(retryError, 'create drill version');
+      }
+
+      console.log(`[DrillService] Successfully created version ${versionNumber} for drill ${drillId} (${drill.name})`);
+      return { data: retryData as DrillVersionRecord, error: null };
+    }
+
+    if (error) {
+      console.error(`[DrillService] Failed to create version ${versionNumber}:`, error.message);
+      return this.createErrorResult(error, 'create drill version');
+    }
+
+    console.log(`[DrillService] Successfully created version ${versionNumber} for drill ${drillId} (${drill.name})`);
+    return { data: data as DrillVersionRecord, error: null };
+  }
+
+  /**
+   * Create a new drill version
+   */
+  private async createNewVersion(
+    drillId: string,
+    userId: string,
+    drill: Drill,
+    audioUrl?: string | null,
+    audioFilename?: string | null
+  ): Promise<DatabaseResult<DrillVersionRecord>> {
+    const latestVersion = await this.getLatestVersion(drillId, userId);
+    
+    if (latestVersion.error) {
+      return { data: null, error: latestVersion.error };
+    }
+
+    const now = new Date();
+    if (latestVersion.data) {
+      const ageMinutes = (now.getTime() - new Date(latestVersion.data.created_at).getTime()) / (60 * 1000);
+      console.log(
+        `[DrillService] Latest version ${latestVersion.data.version_number} is ${ageMinutes.toFixed(1)} minutes old (>15 min), creating new version for drill ${drillId} (${drill.name})`
+      );
+    } else {
+      console.log(`[DrillService] No existing versions found, creating first version for drill ${drillId} (${drill.name})`);
+    }
+
+    const nextVersion = await this.getNextVersionNumber(drillId, userId);
+    console.log(`[DrillService] Creating new version ${nextVersion} for drill ${drillId} (${drill.name})`);
+
+    return this.insertVersionWithRetry(drillId, userId, nextVersion, drill, audioUrl, audioFilename);
+  }
+  /**
    * Get all drills for the current user
    */
   async getUserDrills(): Promise<DatabaseResult<DrillRecord[]>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
       const { data, error } = await supabase
         .from('drills')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', authResult.user.id)
         .order('updated_at', { ascending: false });
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to fetch drills: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'fetch drills');
       }
 
       return {
         data: data as DrillRecord[],
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'get user drills');
   }
 
   /**
    * Get a single drill by database UUID
    */
   async getDrillById(drillId: string): Promise<DatabaseResult<DrillRecord>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
       const { data, error } = await supabase
         .from('drills')
         .select('*')
         .eq('id', drillId)
-        .eq('user_id', user.id)
+        .eq('user_id', authResult.user.id)
         .single();
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to fetch drill: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'fetch drill');
       }
 
       return {
         data: data as DrillRecord,
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'get drill by id');
   }
 
   /**
@@ -90,68 +336,51 @@ export class DrillService {
    * This is used for URL-based drill access
    */
   async getDrillByShortId(shortId: string): Promise<DatabaseResult<DrillRecord>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
-      if (shortId.length > 8) {
+      if (shortId.length > CONFIG.SHORT_ID_MAX_LENGTH) {
         return {
           data: null,
           error: new Error('Short ID is too long'),
         };
       }
 
-      // Query short_id column directly
       const { data, error } = await supabase
         .from('drills')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', authResult.user.id)
         .eq('short_id', shortId)
         .single();
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to fetch drill: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'fetch drill');
       }
 
       return {
         data: data as DrillRecord,
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'get drill by short id');
   }
 
   /**
    * Create a new drill
    */
   async createDrill(input: CreateDrillInput): Promise<DatabaseResult<DrillRecord>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
       const { data, error } = await supabase
         .from('drills')
         .insert({
-          user_id: user.id,
+          user_id: authResult.user.id,
           name: input.name,
           short_id: input.short_id,
         })
@@ -159,36 +388,24 @@ export class DrillService {
         .single();
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to create drill: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'create drill');
       }
 
       return {
         data: data as DrillRecord,
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'create drill');
   }
 
   /**
    * Update an existing drill
    */
   async updateDrill(drillId: string, input: UpdateDrillInput): Promise<DatabaseResult<DrillRecord>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
       // First verify the drill belongs to the user
@@ -196,7 +413,7 @@ export class DrillService {
         .from('drills')
         .select('id')
         .eq('id', drillId)
-        .eq('user_id', user.id)
+        .eq('user_id', authResult.user.id)
         .single();
 
       if (fetchError || !existingDrill) {
@@ -217,66 +434,46 @@ export class DrillService {
         .from('drills')
         .update(updateData)
         .eq('id', drillId)
-        .eq('user_id', user.id)
+        .eq('user_id', authResult.user.id)
         .select()
         .single();
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to update drill: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'update drill');
       }
 
       return {
         data: data as DrillRecord,
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'update drill');
   }
 
   /**
    * Delete a drill
    */
   async deleteDrill(drillId: string): Promise<DatabaseResult<void>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
       const { error } = await supabase
         .from('drills')
         .delete()
         .eq('id', drillId)
-        .eq('user_id', user.id);
+        .eq('user_id', authResult.user.id);
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to delete drill: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'delete drill');
       }
 
       return {
         data: undefined,
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'delete drill');
   }
 
   /**
@@ -290,315 +487,88 @@ export class DrillService {
     audioUrl?: string | null,
     audioFilename?: string | null
   ): Promise<DatabaseResult<DrillVersionRecord>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
-      // Get the latest version with created_at timestamp
-      const { data: latestVersion } = await supabase
-        .from('drill_versions')
-        .select('id, version_number, created_at')
-        .eq('drill_id', drillId)
-        .eq('user_id', user.id)
-        .order('version_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
-      const now = new Date();
-      const shouldUpdateExisting = latestVersion && latestVersion.created_at
-        ? (now.getTime() - new Date(latestVersion.created_at).getTime()) < FIFTEEN_MINUTES_MS
-        : false;
-
-      if (shouldUpdateExisting && latestVersion) {
-        console.log(`[DrillService] Updating existing version ${latestVersion.version_number} for drill ${drillId} (${drill.name})`);
-        // Serialize drill data properly for JSONB (convert Date objects to strings)
-        const serializedDrill = JSON.parse(JSON.stringify(drill));
-        
-        // Update the existing version
-        const { data, error } = await supabase
-          .from('drill_versions')
-          .update({
-            drill_data: serializedDrill,
-            name: drill.name,
-            audio_url: audioUrl || null,
-            audio_filename: audioFilename || null,
-            updated_at: now.toISOString(), // Update the updated_at timestamp
-          })
-          .eq('id', latestVersion.id)
-          .select()
-          .maybeSingle();
-
-        if (error) {
-          return {
-            data: null,
-            error: new Error(`Failed to update drill version: ${error.message}`),
-          };
-        }
-
-        if (!data) {
-          // Row was not found or not updated, create a new version instead
-          console.log(`[DrillService] Update returned no data, falling back to creating new version for drill ${drillId}`);
-          // Re-query to get the actual latest version number (handles race conditions)
-          const { data: actualLatestVersion } = await supabase
-            .from('drill_versions')
-            .select('version_number')
-            .eq('drill_id', drillId)
-            .eq('user_id', user.id)
-            .order('version_number', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          
-          const nextVersion = actualLatestVersion ? actualLatestVersion.version_number + 1 : 1;
-          console.log(`[DrillService] Creating new version ${nextVersion} for drill ${drillId} (${drill.name})`);
-          // Serialize drill data properly for JSONB (convert Date objects to strings)
-          const serializedDrill = JSON.parse(JSON.stringify(drill));
-          
-          const { data: newData, error: insertError } = await supabase
-            .from('drill_versions')
-            .insert({
-              drill_id: drillId,
-              user_id: user.id,
-              version_number: nextVersion,
-              drill_data: serializedDrill,
-              name: drill.name,
-              audio_url: audioUrl || null,
-              audio_filename: audioFilename || null,
-              updated_at: now.toISOString(),
-            })
-            .select()
-            .single();
-
-          if (insertError) {
-            // If duplicate key error, retry with next version number
-            if (insertError.code === '23505' && insertError.message.includes('drill_versions_drill_id_version_number_key')) {
-              console.log(`[DrillService] Duplicate key error detected, retrying with next version number for drill ${drillId}`);
-              // Query again and try with the next version
-              const { data: retryLatestVersion } = await supabase
-                .from('drill_versions')
-                .select('version_number')
-                .eq('drill_id', drillId)
-                .eq('user_id', user.id)
-                .order('version_number', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              
-              const retryNextVersion = retryLatestVersion ? retryLatestVersion.version_number + 1 : 1;
-              console.log(`[DrillService] Retrying: Creating new version ${retryNextVersion} for drill ${drillId} (${drill.name})`);
-              
-              const { data: retryData, error: retryError } = await supabase
-                .from('drill_versions')
-                .insert({
-                  drill_id: drillId,
-                  user_id: user.id,
-                  version_number: retryNextVersion,
-                  drill_data: serializedDrill,
-                  name: drill.name,
-                  audio_url: audioUrl || null,
-                  audio_filename: audioFilename || null,
-                  updated_at: now.toISOString(),
-                })
-                .select()
-                .single();
-
-              if (retryError) {
-                console.error(`[DrillService] Failed to create version ${retryNextVersion} after retry:`, retryError.message);
-                return {
-                  data: null,
-                  error: new Error(`Failed to create drill version: ${retryError.message}`),
-                };
-              }
-
-              console.log(`[DrillService] Successfully created version ${retryNextVersion} for drill ${drillId} (${drill.name})`);
-              return {
-                data: retryData as DrillVersionRecord,
-                error: null,
-              };
-            }
-            
-            console.error(`[DrillService] Failed to create version ${nextVersion}:`, insertError.message);
-            return {
-              data: null,
-              error: new Error(`Failed to create drill version: ${insertError.message}`),
-            };
-          }
-
-          console.log(`[DrillService] Successfully created version ${nextVersion} for drill ${drillId} (${drill.name})`);
-          return {
-            data: newData as DrillVersionRecord,
-            error: null,
-          };
-        }
-
-        console.log(`[DrillService] Successfully updated version ${latestVersion.version_number} for drill ${drillId} (${drill.name})`);
-        return {
-          data: data as DrillVersionRecord,
-          error: null,
-        };
-      } else {
-        // Create a new version
-        if (latestVersion) {
-          const ageMinutes = (now.getTime() - new Date(latestVersion.created_at).getTime()) / (60 * 1000);
-          console.log(`[DrillService] Latest version ${latestVersion.version_number} is ${ageMinutes.toFixed(1)} minutes old (>15 min), creating new version for drill ${drillId} (${drill.name})`);
-        } else {
-          console.log(`[DrillService] No existing versions found, creating first version for drill ${drillId} (${drill.name})`);
-        }
-        // Re-query to get the actual latest version number (handles race conditions)
-        const { data: actualLatestVersion } = await supabase
-          .from('drill_versions')
-          .select('version_number')
-          .eq('drill_id', drillId)
-          .eq('user_id', user.id)
-          .order('version_number', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
-        const nextVersion = actualLatestVersion ? actualLatestVersion.version_number + 1 : 1;
-        console.log(`[DrillService] Creating new version ${nextVersion} for drill ${drillId} (${drill.name})`);
-        // Serialize drill data properly for JSONB (convert Date objects to strings)
-        const serializedDrill = JSON.parse(JSON.stringify(drill));
-
-        const { data, error } = await supabase
-          .from('drill_versions')
-          .insert({
-            drill_id: drillId,
-            user_id: user.id,
-            version_number: nextVersion,
-            drill_data: serializedDrill,
-            name: drill.name,
-            audio_url: audioUrl || null,
-            audio_filename: audioFilename || null,
-            updated_at: now.toISOString(), // Set updated_at for new versions
-          })
-          .select()
-          .single();
-
-        if (error) {
-          // If duplicate key error, retry with next version number
-          if (error.code === '23505' && error.message.includes('drill_versions_drill_id_version_number_key')) {
-            console.log(`[DrillService] Duplicate key error detected, retrying with next version number for drill ${drillId}`);
-            // Query again and try with the next version
-            const { data: retryLatestVersion } = await supabase
-              .from('drill_versions')
-              .select('version_number')
-              .eq('drill_id', drillId)
-              .eq('user_id', user.id)
-              .order('version_number', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            
-            const retryNextVersion = retryLatestVersion ? retryLatestVersion.version_number + 1 : 1;
-            console.log(`[DrillService] Retrying: Creating new version ${retryNextVersion} for drill ${drillId} (${drill.name})`);
-            
-            const { data: retryData, error: retryError } = await supabase
-              .from('drill_versions')
-              .insert({
-                drill_id: drillId,
-                user_id: user.id,
-                version_number: retryNextVersion,
-                drill_data: serializedDrill,
-                name: drill.name,
-                audio_url: audioUrl || null,
-                audio_filename: audioFilename || null,
-                updated_at: now.toISOString(),
-              })
-              .select()
-              .single();
-
-            if (retryError) {
-              console.error(`[DrillService] Failed to create version ${retryNextVersion} after retry:`, retryError.message);
-              return {
-                data: null,
-                error: new Error(`Failed to create drill version: ${retryError.message}`),
-              };
-            }
-
-            console.log(`[DrillService] Successfully created version ${retryNextVersion} for drill ${drillId} (${drill.name})`);
-            return {
-              data: retryData as DrillVersionRecord,
-              error: null,
-            };
-          }
-          
-          console.error(`[DrillService] Failed to create version ${nextVersion}:`, error.message);
-          return {
-            data: null,
-            error: new Error(`Failed to create drill version: ${error.message}`),
-          };
-        }
-
-        console.log(`[DrillService] Successfully created version ${nextVersion} for drill ${drillId} (${drill.name})`);
-        return {
-          data: data as DrillVersionRecord,
-          error: null,
-        };
+      // Get the latest version
+      const latestVersionResult = await this.getLatestVersion(drillId, authResult.user.id);
+      if (latestVersionResult.error) {
+        return { data: null, error: latestVersionResult.error };
       }
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+
+      const latestVersion = latestVersionResult.data;
+
+      // Check if we should update existing version or create new one
+      if (latestVersion && this.shouldUpdateExistingVersion(latestVersion)) {
+        console.log(
+          `[DrillService] Updating existing version ${latestVersion.version_number} for drill ${drillId} (${drill.name})`
+        );
+
+        const updateResult = await this.updateExistingVersion(
+          latestVersion.id,
+          drill,
+          audioUrl,
+          audioFilename
+        );
+
+        // If update failed or returned no data, fall back to creating new version
+        if (updateResult.error || !updateResult.data) {
+          console.log(
+            `[DrillService] Update returned no data, falling back to creating new version for drill ${drillId}`
+          );
+          return this.createNewVersion(drillId, authResult.user.id, drill, audioUrl, audioFilename);
+        }
+
+        console.log(
+          `[DrillService] Successfully updated version ${latestVersion.version_number} for drill ${drillId} (${drill.name})`
+        );
+        return updateResult;
+      }
+
+      // Create a new version
+      return this.createNewVersion(drillId, authResult.user.id, drill, audioUrl, audioFilename);
+    }, 'create drill version');
   }
 
   /**
    * Get all versions for a drill
    */
   async getDrillVersions(drillId: string): Promise<DatabaseResult<DrillVersionRecord[]>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
       const { data, error } = await supabase
         .from('drill_versions')
         .select('*')
         .eq('drill_id', drillId)
-        .eq('user_id', user.id)
+        .eq('user_id', authResult.user.id)
         .order('version_number', { ascending: false });
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to fetch drill versions: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'fetch drill versions');
       }
 
       return {
         data: data as DrillVersionRecord[],
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'get drill versions');
   }
 
   /**
    * Get a specific version by version number
    */
   async getDrillVersion(drillId: string, versionNumber: number): Promise<DatabaseResult<DrillVersionRecord>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
       const { data, error } = await supabase
@@ -606,65 +576,45 @@ export class DrillService {
         .select('*')
         .eq('drill_id', drillId)
         .eq('version_number', versionNumber)
-        .eq('user_id', user.id)
+        .eq('user_id', authResult.user.id)
         .single();
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to fetch drill version: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'fetch drill version');
       }
 
       return {
         data: data as DrillVersionRecord,
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'get drill version');
   }
 
   /**
    * Delete a drill version
    */
   async deleteDrillVersion(versionId: string): Promise<DatabaseResult<void>> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return {
-          data: null,
-          error: new Error('User not authenticated'),
-        };
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
       }
 
       const { error } = await supabase
         .from('drill_versions')
         .delete()
         .eq('id', versionId)
-        .eq('user_id', user.id);
+        .eq('user_id', authResult.user.id);
 
       if (error) {
-        return {
-          data: null,
-          error: new Error(`Failed to delete drill version: ${error.message}`),
-        };
+        return this.createErrorResult(error, 'delete drill version');
       }
 
       return {
         data: null,
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'delete drill version');
   }
 
   /**
@@ -700,7 +650,7 @@ export class DrillService {
    * Get a drill with its latest version data
    */
   async getDrillWithLatestVersion(drillId: string): Promise<DatabaseResult<{ record: DrillRecord; drill: Drill }>> {
-    try {
+    return this.wrapDatabaseOperation(async () => {
       // Get the drill record
       const recordResult = await this.getDrillById(drillId);
       if (recordResult.error || !recordResult.data) {
@@ -733,19 +683,14 @@ export class DrillService {
         data: { record: recordResult.data, drill },
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'get drill with latest version');
   }
 
   /**
    * Get a drill by short ID with its latest version data
    */
   async getDrillByShortIdWithVersion(shortId: string): Promise<DatabaseResult<{ record: DrillRecord; drill: Drill }>> {
-    try {
+    return this.wrapDatabaseOperation(async () => {
       // Get the drill record by short_id
       const recordResult = await this.getDrillByShortId(shortId);
       if (recordResult.error || !recordResult.data) {
@@ -778,12 +723,7 @@ export class DrillService {
         data: { record: recordResult.data, drill },
         error: null,
       };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      };
-    }
+    }, 'get drill by short id with version');
   }
 }
 
