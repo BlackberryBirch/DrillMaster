@@ -24,21 +24,31 @@ export function useAudio() {
       audioRef.current = new Audio();
       audioRef.current.preload = 'auto';
       
-      // Handle audio errors - only log if there's actually an audio track and a real error
+      // Handle audio errors - log all errors with context
       audioRef.current.addEventListener('error', (e) => {
         const audio = e.target as HTMLAudioElement;
-        // Only log if there's a source and a meaningful error
         if (audio.src && audio.error) {
           const errorCode = audio.error.code;
-          // MEDIA_ERR_ABORTED (1) and MEDIA_ERR_NETWORK (2) are often expected during loading
-          // Only log MEDIA_ERR_DECODE (3) and MEDIA_ERR_SRC_NOT_SUPPORTED (4) as real errors
-          if (errorCode === 3 || errorCode === 4) {
-            console.error('Audio playback error:', {
-              code: errorCode,
-              message: errorCode === 3 ? 'Decode error' : 'Source not supported',
-              src: audio.src.substring(0, 100), // Log first 100 chars of URL
-            });
-          }
+          const errorMessages: Record<number, string> = {
+            1: 'MEDIA_ERR_ABORTED - The user aborted the loading',
+            2: 'MEDIA_ERR_NETWORK - A network error occurred',
+            3: 'MEDIA_ERR_DECODE - The audio was decoded with an error',
+            4: 'MEDIA_ERR_SRC_NOT_SUPPORTED - The audio source is not supported',
+          };
+          
+          console.error('[useAudio] Audio playback error:', {
+            code: errorCode,
+            message: errorMessages[errorCode] || 'Unknown error',
+            src: audio.src.substring(0, 150), // Log first 150 chars of URL
+            networkState: audio.networkState,
+            readyState: audio.readyState,
+          });
+        } else if (audio.src && !audio.error) {
+          console.warn('[useAudio] Audio error event fired but no error object available:', {
+            src: audio.src.substring(0, 150),
+            networkState: audio.networkState,
+            readyState: audio.readyState,
+          });
         }
       });
 
@@ -66,6 +76,7 @@ export function useAudio() {
   useEffect(() => {
     if (!audioRef.current || !drill?.audioTrack) {
       if (audioRef.current) {
+        console.log('[useAudio] Clearing audio source - no drill or audio track');
         audioRef.current.pause();
         audioRef.current.src = '';
       }
@@ -78,13 +89,78 @@ export function useAudio() {
     
     // Only update if URL changed
     if (audioUrlRef.current !== audioTrack.url) {
+      console.log('[useAudio] Setting audio URL:', {
+        previousUrl: audioUrlRef.current ? audioUrlRef.current.substring(0, 100) + '...' : null,
+        newUrl: audioTrack.url.substring(0, 100) + '...',
+        offset: audioTrack.offset || 0,
+        filename: audioTrack.filename,
+      });
+      
       audioUrlRef.current = audioTrack.url;
       audioOffsetRef.current = audioTrack.offset || 0;
       
       if (audioRef.current) {
+        // Verify URL is valid before setting
+        if (!audioTrack.url || audioTrack.url.trim() === '') {
+          console.error('[useAudio] Invalid audio URL (empty or whitespace):', audioTrack.url);
+          return;
+        }
+        
+        // Check if URL looks valid
+        const isValidUrl = audioTrack.url.startsWith('http://') || 
+                          audioTrack.url.startsWith('https://') || 
+                          audioTrack.url.startsWith('data:');
+        
+        if (!isValidUrl) {
+          console.warn('[useAudio] Audio URL does not appear to be a valid URL:', {
+            url: audioTrack.url.substring(0, 150),
+            urlLength: audioTrack.url.length,
+          });
+        }
+        
+        console.log('[useAudio] Setting audio element src and loading...');
+        const urlBeforeSet = audioRef.current.src;
         audioRef.current.src = audioTrack.url;
+        const urlAfterSet = audioRef.current.src;
+        
+        // Log the URL that was set (browser may normalize it)
+        console.log('[useAudio] Audio src set:', {
+          requested: audioTrack.url.substring(0, 150) + '...',
+          actual: urlAfterSet.substring(0, 150) + '...',
+          changed: urlBeforeSet !== urlAfterSet,
+        });
+        
         audioRef.current.load();
+        
+        // Log when audio is loaded
+        audioRef.current.addEventListener('loadedmetadata', () => {
+          console.log('[useAudio] Audio metadata loaded:', {
+            duration: audioRef.current?.duration,
+            readyState: audioRef.current?.readyState,
+            networkState: audioRef.current?.networkState,
+            src: audioRef.current?.src.substring(0, 150) + '...',
+          });
+        }, { once: true });
+        
+        // Log when audio can play
+        audioRef.current.addEventListener('canplay', () => {
+          console.log('[useAudio] Audio can play:', {
+            duration: audioRef.current?.duration,
+            readyState: audioRef.current?.readyState,
+            networkState: audioRef.current?.networkState,
+            src: audioRef.current?.src.substring(0, 150) + '...',
+          });
+        }, { once: true });
+        
+        // Log loadstart
+        audioRef.current.addEventListener('loadstart', () => {
+          console.log('[useAudio] Audio load started:', {
+            src: audioRef.current?.src.substring(0, 150) + '...',
+          });
+        }, { once: true });
       }
+    } else {
+      console.log('[useAudio] Audio URL unchanged, skipping update');
     }
   }, [drill?.audioTrack]);
 
@@ -154,27 +230,5 @@ export function useAudio() {
       }, 100);
     }
   }, [currentTime, animationState, drill?.audioTrack]);
-
-  // Return function to load audio file
-  return {
-    loadAudioFile: (file: File) => {
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const url = e.target?.result as string;
-          if (audioRef.current) {
-            audioRef.current.src = url;
-            audioRef.current.load();
-            audioUrlRef.current = url;
-            resolve(url);
-          } else {
-            reject(new Error('Audio element not initialized'));
-          }
-        };
-        reader.onerror = () => reject(new Error('Failed to read audio file'));
-        reader.readAsDataURL(file);
-      });
-    },
-  };
 }
 

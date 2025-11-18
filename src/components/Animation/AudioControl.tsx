@@ -59,8 +59,8 @@ export default function AudioControl() {
           return;
         }
 
-        // Set the audio track with the storage URL
-        setAudioTrack(uploadResult.url, 0, file.name);
+        // Set the audio track with the signed URL and storage path
+        setAudioTrack(uploadResult.url, 0, file.name, uploadResult.storagePath);
 
         // Save the drill to cloud storage to update the version with the new audio URL
         // Get the updated drill from the store after setAudioTrack (Zustand updates are synchronous)

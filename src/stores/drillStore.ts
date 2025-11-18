@@ -28,7 +28,7 @@ interface DrillStore {
   distributeHorsesEvenly: (frameId: string, horseIds: string[]) => void;
   
   // Audio
-  setAudioTrack: (url: string, offset?: number, filename?: string) => void;
+  setAudioTrack: (url: string, offset?: number, filename?: string, storagePath?: string) => void;
   removeAudioTrack: () => Promise<void>;
   
   // Getters
@@ -513,12 +513,13 @@ export const useDrillStore = create<DrillStore>()(
     });
   },
 
-  setAudioTrack: (url, offset = 0, filename) => {
+  setAudioTrack: (url, offset = 0, filename, storagePath?) => {
     const { drill } = get();
     if (!drill) return;
 
     const audioTrack: AudioTrack = {
       url,
+      storagePath,
       offset,
       filename,
     };

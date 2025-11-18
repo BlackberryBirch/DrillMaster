@@ -8,7 +8,8 @@ export interface DrillMetadata {
 }
 
 export interface AudioTrack {
-  url: string;
+  url: string; // Signed URL for playback (temporary, never saved to DB)
+  storagePath?: string; // Cloud storage path (saved to DB, never the signed URL)
   offset: number; // seconds offset from start
   filename?: string;
 }

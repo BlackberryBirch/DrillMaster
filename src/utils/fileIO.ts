@@ -8,17 +8,27 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
   private readonly format = 'drill-json';
 
   serialize(drill: Drill): string {
+    // Create a copy of the drill, but exclude the signed URL from audioTrack
+    // Only save storagePath, not the temporary signed URL
+    const drillToSave = {
+      ...drill,
+      metadata: {
+        ...drill.metadata,
+        createdAt: drill.metadata.createdAt,
+        modifiedAt: new Date(),
+      },
+      audioTrack: drill.audioTrack ? {
+        // Exclude url (signed URL) - only save storagePath
+        storagePath: drill.audioTrack.storagePath,
+        offset: drill.audioTrack.offset,
+        filename: drill.audioTrack.filename,
+      } : undefined,
+    };
+
     const file: DrillFile = {
       version: this.version,
       format: this.format,
-      drill: {
-        ...drill,
-        metadata: {
-          ...drill.metadata,
-          createdAt: drill.metadata.createdAt,
-          modifiedAt: new Date(),
-        },
-      },
+      drill: drillToSave,
     };
 
     return JSON.stringify(file, null, 2);

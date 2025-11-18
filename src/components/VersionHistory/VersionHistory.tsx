@@ -3,6 +3,7 @@ import { drillService } from '../../services/drillService';
 import { DrillVersionRecord } from '../../types/database';
 import { Drill } from '../../types/drill';
 import { format } from 'date-fns';
+import { supabase } from '../../lib/supabase';
 
 interface VersionHistoryProps {
   drillId: string; // Database UUID
@@ -54,13 +55,51 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: 
       
       // Restore audio track if it exists in the version
       if (version.audio_url) {
-        restoredDrill.audioTrack = {
-          url: version.audio_url,
-          offset: restoredDrill.audioTrack?.offset || 0,
-          filename: version.audio_filename || undefined,
-        };
+        // The audio_url from the database is always a storage path (never a signed URL)
+        const storagePath = version.audio_url;
+        console.log('[VersionHistory] Restoring audio track:', {
+          storagePath: storagePath,
+          filename: version.audio_filename,
+        });
+        
+        // Convert storage path to signed URL for playback
+        console.log('[VersionHistory] Converting storage path to signed URL:', storagePath);
+        const { data: urlData, error } = await supabase.storage
+          .from('drill-audio')
+          .createSignedUrl(storagePath, 3600); // 1 hour expiration
+        
+        if (error) {
+          console.error('[VersionHistory] Failed to create signed URL for audio:', {
+            error,
+            storagePath: storagePath,
+          });
+          // If signed URL creation fails, clear the audio track
+          restoredDrill.audioTrack = undefined;
+        } else {
+          const signedUrl = urlData.signedUrl;
+          console.log('[VersionHistory] Successfully created signed URL:', {
+            storagePath: storagePath,
+            signedUrl: signedUrl.substring(0, 100) + '...',
+          });
+          
+          // Set audio track with both storagePath (for saving) and url (for playback)
+          restoredDrill.audioTrack = {
+            url: signedUrl, // Temporary signed URL for playback
+            storagePath: storagePath, // Storage path saved to DB
+            offset: restoredDrill.audioTrack?.offset || 0,
+            filename: version.audio_filename || undefined,
+          };
+          
+          console.log('[VersionHistory] Audio track restored:', {
+            storagePath: storagePath,
+            url: signedUrl.substring(0, 100) + '...',
+            offset: restoredDrill.audioTrack.offset,
+            filename: restoredDrill.audioTrack.filename,
+          });
+        }
       } else {
         // Clear audio track if version doesn't have one
+        console.log('[VersionHistory] No audio_url in version, clearing audio track');
         restoredDrill.audioTrack = undefined;
       }
       

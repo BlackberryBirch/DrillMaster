@@ -5,11 +5,16 @@ import type { User } from '@supabase/supabase-js';
 
 // Mock Supabase - factory function to avoid hoisting issues
 vi.mock('../../lib/supabase', () => {
+  const mockStorage = {
+    from: vi.fn(),
+    createSignedUrl: vi.fn(),
+  };
   const mockSupabaseClient = {
     auth: {
       getUser: vi.fn(),
     },
     from: vi.fn(),
+    storage: mockStorage,
   };
   return {
     supabase: mockSupabaseClient,
@@ -686,7 +691,7 @@ describe('DrillService', () => {
   });
 
   describe('recordToDrill', () => {
-    it('should convert DrillRecord to Drill', () => {
+    it('should convert DrillRecord to Drill', async () => {
       const testDrill = createDrill('test-id', 'Test Drill');
 
       const record = {
@@ -711,7 +716,7 @@ describe('DrillService', () => {
         updated_at: new Date().toISOString(),
       };
 
-      const result = DrillService.recordToDrill(record, version);
+      const result = await DrillService.recordToDrill(record, version);
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe('abc123');
@@ -719,7 +724,9 @@ describe('DrillService', () => {
       expect(result?.audioTrack?.filename).toBe('audio.mp3');
     });
 
-    it('should return null when version is null', () => {
+    it('should convert storage path to signed URL', async () => {
+      const testDrill = createDrill('test-id', 'Test Drill');
+
       const record = {
         id: 'drill-id',
         user_id: mockUser.id,
@@ -729,7 +736,49 @@ describe('DrillService', () => {
         updated_at: '2024-01-02T00:00:00Z',
       };
 
-      const result = DrillService.recordToDrill(record, null);
+      const version = {
+        id: 'version-id',
+        drill_id: 'drill-id',
+        user_id: mockUser.id,
+        version_number: 1,
+        drill_data: testDrill,
+        name: 'Test Drill',
+        audio_url: 'user-id/drill-id/timestamp.mp3',
+        audio_filename: 'audio.mp3',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const mockStorageFrom = vi.fn().mockReturnValue({
+        createSignedUrl: vi.fn().mockResolvedValue({
+          data: { signedUrl: 'https://signed-url.example.com/audio.mp3' },
+          error: null,
+        }),
+      });
+
+      (supabase.storage.from as ReturnType<typeof vi.fn>) = mockStorageFrom;
+
+      const result = await DrillService.recordToDrill(record, version);
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe('abc123');
+      expect(result?.audioTrack?.url).toBe('https://signed-url.example.com/audio.mp3');
+      expect(result?.audioTrack?.filename).toBe('audio.mp3');
+      expect(mockStorageFrom).toHaveBeenCalledWith('drill-audio');
+      expect(mockStorageFrom().createSignedUrl).toHaveBeenCalledWith('user-id/drill-id/timestamp.mp3', 3600);
+    });
+
+    it('should return null when version is null', async () => {
+      const record = {
+        id: 'drill-id',
+        user_id: mockUser.id,
+        name: 'Test Drill',
+        short_id: 'abc123',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-02T00:00:00Z',
+      };
+
+      const result = await DrillService.recordToDrill(record, null);
 
       expect(result).toBeNull();
     });

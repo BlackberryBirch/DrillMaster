@@ -61,9 +61,20 @@ export class DrillService {
 
   /**
    * Serialize drill data for JSONB storage (converts Date objects to strings)
+   * Excludes signed URLs from audioTrack - only saves storagePath
    */
   private serializeDrill(drill: Drill): unknown {
-    return JSON.parse(JSON.stringify(drill));
+    // Create a copy without the signed URL in audioTrack
+    const drillToSerialize = {
+      ...drill,
+      audioTrack: drill.audioTrack ? {
+        // Exclude url (signed URL) - only save storagePath
+        storagePath: drill.audioTrack.storagePath,
+        offset: drill.audioTrack.offset,
+        filename: drill.audioTrack.filename,
+      } : undefined,
+    };
+    return JSON.parse(JSON.stringify(drillToSerialize));
   }
 
   /**
@@ -622,7 +633,7 @@ export class DrillService {
    * Note: This method now requires loading the latest version to get drill_data
    * Use getDrillWithLatestVersion() instead for loading drills
    */
-  static recordToDrill(record: DrillRecord, latestVersion: DrillVersionRecord | null): Drill | null {
+  static async recordToDrill(record: DrillRecord, latestVersion: DrillVersionRecord | null): Promise<Drill | null> {
     if (!latestVersion) {
       return null;
     }
@@ -637,15 +648,54 @@ export class DrillService {
     // Restore audio track from version's audio_url (prioritize this over drill_data)
     // The audio_url in the version is the source of truth for the audio file location
     if (latestVersion.audio_url) {
-      // Use audio_url from version (this is the stored audio file in cloud storage)
+      // The audio_url from the database is always a storage path (never a signed URL)
+      const storagePath = latestVersion.audio_url;
+      console.log('[DrillService] Loading audio track:', {
+        storagePath: storagePath,
+        filename: latestVersion.audio_filename,
+      });
+      
+      // Convert storage path to signed URL for playback
+      // The storage path is never a full URL - it's always a path like "user_id/drillId/timestamp.mp3"
+      console.log('[DrillService] Converting storage path to signed URL:', storagePath);
+      const { data: urlData, error } = await supabase.storage
+        .from('drill-audio')
+        .createSignedUrl(storagePath, 3600); // 1 hour expiration
+      
+      if (error) {
+        console.error('[DrillService] Failed to create signed URL for audio:', {
+          error,
+          storagePath: storagePath,
+        });
+        // If signed URL creation fails, clear the audio track
+        drill.audioTrack = undefined;
+        return drill;
+      }
+      
+      const signedUrl = urlData.signedUrl;
+      console.log('[DrillService] Successfully created signed URL:', {
+        storagePath: storagePath,
+        signedUrl: signedUrl.substring(0, 100) + '...', // Log first 100 chars
+      });
+      
+      // Set audio track with both storagePath (for saving) and url (for playback)
+      // storagePath is what gets saved to DB, url is temporary for playback
       drill.audioTrack = {
-        url: latestVersion.audio_url,
+        url: signedUrl, // Temporary signed URL for playback
+        storagePath: storagePath, // Storage path saved to DB
         offset: drill.audioTrack?.offset || 0,
         filename: latestVersion.audio_filename || undefined,
       };
+      console.log('[DrillService] Audio track set:', {
+        storagePath: storagePath,
+        url: signedUrl.substring(0, 100) + '...',
+        offset: drill.audioTrack.offset,
+        filename: drill.audioTrack.filename,
+      });
     } else {
       // If audio_url is null or undefined, clear the audioTrack
       // This ensures we don't use stale audio URLs from drill_data
+      console.log('[DrillService] No audio_url in version, clearing audio track');
       drill.audioTrack = undefined;
     }
 
@@ -676,7 +726,7 @@ export class DrillService {
       }
 
       const latestVersion = versionsResult.data[0]; // Versions are ordered by version_number DESC
-      const drill = DrillService.recordToDrill(recordResult.data, latestVersion);
+      const drill = await DrillService.recordToDrill(recordResult.data, latestVersion);
 
       if (!drill) {
         return {
@@ -716,7 +766,7 @@ export class DrillService {
       }
 
       const latestVersion = versionsResult.data[0]; // Versions are ordered by version_number DESC
-      const drill = DrillService.recordToDrill(recordResult.data, latestVersion);
+      const drill = await DrillService.recordToDrill(recordResult.data, latestVersion);
 
       if (!drill) {
         return {

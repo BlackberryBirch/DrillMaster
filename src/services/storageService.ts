@@ -15,7 +15,7 @@ export class StorageService {
   uploadAudioFile(
     file: File,
     drillId: string
-  ): { promise: Promise<{ url: string | null; error: Error | null }>; abort: () => void } {
+  ): { promise: Promise<{ url: string | null; storagePath?: string; error: Error | null }>; abort: () => void } {
     // Create abort controller and cancellation state for this upload
     const abortController = new AbortController();
     
@@ -52,6 +52,7 @@ export class StorageService {
         if (isCancelled) {
           return {
             url: null,
+            storagePath: undefined,
             error: new Error('Upload cancelled'),
           };
         }
@@ -89,6 +90,7 @@ export class StorageService {
           }
           return {
             url: null,
+            storagePath: undefined,
             error: new Error('Upload cancelled'),
           };
         }
@@ -96,29 +98,41 @@ export class StorageService {
         if (error) {
           return {
             url: null,
+            storagePath: undefined,
             error: new Error(`Failed to upload file: ${error.message}`),
           };
         }
 
-        // Get public URL
-        const { data: urlData } = supabase.storage
+        // Get signed URL for immediate use (since bucket is private)
+        const { data: urlData, error: urlError } = await supabase.storage
           .from(this.BUCKET_NAME)
-          .getPublicUrl(data.path);
+          .createSignedUrl(data.path, 3600); // 1 hour expiration
+
+        if (urlError) {
+          return {
+            url: null,
+            storagePath: data.path, // Still return path even if signed URL fails
+            error: new Error(`Failed to create signed URL: ${urlError.message}`),
+          };
+        }
 
         return {
-          url: urlData.publicUrl,
+          url: urlData.signedUrl,
+          storagePath: data.path, // Return the storage path for saving to DB
           error: null,
         };
       } catch (error) {
         if (isCancelled || abortController.signal.aborted) {
           return {
             url: null,
+            storagePath: undefined,
             error: new Error('Upload cancelled'),
           };
         }
         
         return {
           url: null,
+          storagePath: undefined,
           error: error instanceof Error ? error : new Error('Unknown error occurred'),
         };
       }

@@ -34,6 +34,33 @@ export class CloudStorageAdapter implements FileFormatAdapter {
   }
 
   /**
+   * Extract storage path from a Supabase URL (public or signed)
+   * Returns the original string if it's not a Supabase URL (assumes it's already a path)
+   */
+  private extractStoragePathFromUrl(url: string): string {
+    // If it's a Supabase public URL, extract the storage path
+    if (url.includes('/storage/v1/object/public/drill-audio/')) {
+      const parts = url.split('/storage/v1/object/public/drill-audio/');
+      if (parts.length > 1) {
+        // Return just the path part (user_id/drillId/filename)
+        // Remove any query parameters
+        return parts[1].split('?')[0];
+      }
+    }
+    // If it's a Supabase signed URL, extract the storage path
+    if (url.includes('/storage/v1/object/sign/drill-audio/')) {
+      const parts = url.split('/storage/v1/object/sign/drill-audio/');
+      if (parts.length > 1) {
+        // Return just the path part (user_id/drillId/filename)
+        // Remove any query parameters
+        return parts[1].split('?')[0];
+      }
+    }
+    // If it's not a Supabase URL, assume it's already a storage path
+    return url;
+  }
+
+  /**
    * Save drill to cloud storage
    * Uses the drill.id (short ID) to find existing drill in database
    */
@@ -59,12 +86,25 @@ export class CloudStorageAdapter implements FileFormatAdapter {
       
       // Use drill.id (short ID) to find existing drill
       let existingDrillId: string | undefined;
+      let originalAudioUrl: string | null = null;
       
       if (!drillId) {
         // Only search if no drillId provided
         const existingResult = await drillService.getDrillByShortId(drill.id);
         if (existingResult.data) {
           existingDrillId = existingResult.data.id;
+          
+          // Get the original audio_url from the latest version to preserve it
+          const versionResult = await drillService.getDrillVersions(existingResult.data.id);
+          if (versionResult.data && versionResult.data.length > 0) {
+            originalAudioUrl = versionResult.data[0].audio_url;
+          }
+        }
+      } else {
+        // Get the original audio_url from the latest version to preserve it
+        const versionResult = await drillService.getDrillVersions(drillId);
+        if (versionResult.data && versionResult.data.length > 0) {
+          originalAudioUrl = versionResult.data[0].audio_url;
         }
       }
       
@@ -90,15 +130,45 @@ export class CloudStorageAdapter implements FileFormatAdapter {
       // Get the database UUID (either from result or targetId)
       const dbDrillId = result.data?.id || targetId;
       if (dbDrillId) {
+        // Always save the storagePath, never the signed URL
+        // If storagePath exists, use it; otherwise try to extract from URL or use original
+        let audioPathToSave: string | null = null;
+        
+        if (drill.audioTrack) {
+          // Priority 1: Use storagePath if it exists (this is the source of truth)
+          if (drill.audioTrack.storagePath) {
+            audioPathToSave = drill.audioTrack.storagePath;
+            console.log('[CloudStorage] Saving audio storage path from audioTrack.storagePath:', audioPathToSave);
+          } 
+          // Priority 2: If we have an original audio_url, use it (it's always a path)
+          else if (originalAudioUrl && !originalAudioUrl.startsWith('http://') && !originalAudioUrl.startsWith('https://')) {
+            audioPathToSave = originalAudioUrl;
+            console.log('[CloudStorage] Saving audio storage path from original audio_url:', audioPathToSave);
+          }
+          // Priority 3: Try to extract path from URL (for new uploads that might have full URLs)
+          else if (drill.audioTrack.url) {
+            audioPathToSave = this.extractStoragePathFromUrl(drill.audioTrack.url);
+            console.log('[CloudStorage] Extracted storage path from URL:', audioPathToSave);
+          }
+        }
+        
+        console.log('[CloudStorage] Saving drill version with audio path:', {
+          hasAudioTrack: !!drill.audioTrack,
+          storagePath: audioPathToSave,
+          filename: drill.audioTrack?.filename,
+        });
+        
         const versionResult = await drillService.createDrillVersion(
           dbDrillId,
           drill,
-          drill.audioTrack?.url || null,
+          audioPathToSave,
           drill.audioTrack?.filename || null
         );
         if (versionResult.error) {
-          console.warn('Failed to create version:', versionResult.error);
+          console.warn('[CloudStorage] Failed to create version:', versionResult.error);
           // Don't fail the save if version creation fails
+        } else {
+          console.log('[CloudStorage] Successfully saved drill version with audio path');
         }
       }
 
