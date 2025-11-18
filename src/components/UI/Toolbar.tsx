@@ -16,7 +16,6 @@ interface ToolbarProps {
 export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel = false, onOpenVersionHistory, isSaving = false }: ToolbarProps) {
   const navigate = useNavigate();
   const drill = useDrillStore((state) => state.drill);
-  const removeAudioTrack = useDrillStore((state) => state.removeAudioTrack);
   const user = useAuthStore((state) => state.user);
 
   const theme = useThemeStore((state) => state.theme);
@@ -40,16 +39,6 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
       >
         <Logo size={32} />
       </button>
-      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-      {drill?.audioTrack && (
-        <button
-          onClick={removeAudioTrack}
-          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-          title="Remove audio track"
-        >
-          🗑️ Remove Audio
-        </button>
-      )}
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
       <button
         onClick={undo}

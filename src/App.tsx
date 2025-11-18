@@ -36,6 +36,58 @@ function DrillEditor() {
     debounceMs: 5000, // Save 5 seconds after last change
   });
 
+  // Save to cloud storage on window closing
+  useEffect(() => {
+    let isSavingOnClose = false;
+
+    const saveOnClose = async () => {
+      if (isSavingOnClose || !user || !drill || !drillId || drillId === 'new') {
+        return;
+      }
+
+      isSavingOnClose = true;
+      try {
+        // Attempt to save - this may not complete if page is closing
+        await cloudAdapter.saveDrillToCloud(drill);
+      } catch (err) {
+        // Ignore errors during unload
+        console.error('Failed to save on close:', err);
+      } finally {
+        isSavingOnClose = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Page is being hidden (tab switch, minimize, or close)
+        saveOnClose();
+      }
+    };
+
+    const handlePageHide = () => {
+      // Page is being unloaded
+      saveOnClose();
+    };
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Show warning if there are unsaved changes
+      if (hasUnsavedChanges) {
+        event.preventDefault();
+        event.returnValue = ''; // Required for Chrome
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user, drill, drillId, hasUnsavedChanges]);
+
   useEffect(() => {
     const loadDrill = async () => {
       if (drillId === 'new') {
@@ -169,7 +221,8 @@ function DrillEditor() {
       }
     };
     updateDatabaseId();
-  }, [drill?.id, drillId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drill?.id, drillId]); // Only depend on drill.id, not the full drill object
 
   const handleRestoreVersion = async (restoredDrill: typeof drill) => {
     if (!restoredDrill) return;

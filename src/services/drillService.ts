@@ -280,7 +280,9 @@ export class DrillService {
   }
 
   /**
-   * Create a new version of a drill
+   * Create or update a version of a drill
+   * Creates a new version if the latest version is more than 15 minutes old,
+   * otherwise updates the current version
    */
   async createDrillVersion(
     drillId: string,
@@ -298,42 +300,79 @@ export class DrillService {
         };
       }
 
-      // Get the next version number
-      const { data: maxVersionData } = await supabase
+      // Get the latest version with created_at timestamp
+      const { data: latestVersion } = await supabase
         .from('drill_versions')
-        .select('version_number')
+        .select('id, version_number, created_at')
         .eq('drill_id', drillId)
+        .eq('user_id', user.id)
         .order('version_number', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      const nextVersion = maxVersionData ? maxVersionData.version_number + 1 : 1;
+      const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+      const now = new Date();
+      const shouldUpdateExisting = latestVersion && latestVersion.created_at
+        ? (now.getTime() - new Date(latestVersion.created_at).getTime()) < FIFTEEN_MINUTES_MS
+        : false;
 
-      const { data, error } = await supabase
-        .from('drill_versions')
-        .insert({
-          drill_id: drillId,
-          user_id: user.id,
-          version_number: nextVersion,
-          drill_data: drill as any,
-          name: drill.name,
-          audio_url: audioUrl || null,
-          audio_filename: audioFilename || null,
-        })
-        .select()
-        .single();
+      if (shouldUpdateExisting && latestVersion) {
+        // Update the existing version
+        const { data, error } = await supabase
+          .from('drill_versions')
+          .update({
+            drill_data: drill as unknown as Record<string, unknown>,
+            name: drill.name,
+            audio_url: audioUrl || null,
+            audio_filename: audioFilename || null,
+            updated_at: now.toISOString(), // Update the updated_at timestamp
+          })
+          .eq('id', latestVersion.id)
+          .select()
+          .single();
 
-      if (error) {
+        if (error) {
+          return {
+            data: null,
+            error: new Error(`Failed to update drill version: ${error.message}`),
+          };
+        }
+
         return {
-          data: null,
-          error: new Error(`Failed to create drill version: ${error.message}`),
+          data: data as DrillVersionRecord,
+          error: null,
+        };
+      } else {
+        // Create a new version
+        const nextVersion = latestVersion ? latestVersion.version_number + 1 : 1;
+
+        const { data, error } = await supabase
+          .from('drill_versions')
+          .insert({
+            drill_id: drillId,
+            user_id: user.id,
+            version_number: nextVersion,
+            drill_data: drill as unknown as Record<string, unknown>,
+            name: drill.name,
+            audio_url: audioUrl || null,
+            audio_filename: audioFilename || null,
+            updated_at: now.toISOString(), // Set updated_at for new versions
+          })
+          .select()
+          .single();
+
+        if (error) {
+          return {
+            data: null,
+            error: new Error(`Failed to create drill version: ${error.message}`),
+          };
+        }
+
+        return {
+          data: data as DrillVersionRecord,
+          error: null,
         };
       }
-
-      return {
-        data: data as DrillVersionRecord,
-        error: null,
-      };
     } catch (error) {
       return {
         data: null,

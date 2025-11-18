@@ -39,27 +39,8 @@ describe('Toolbar', () => {
   it('should render toolbar buttons', () => {
     render(<Toolbar />);
     
-    expect(screen.getByText('New')).toBeInTheDocument();
-    expect(screen.getByText('Load')).toBeInTheDocument();
-    // Save button text may vary based on auth state, so check for button containing "Save"
-    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
-  });
-
-  it('should disable save when no drill', () => {
-    render(<Toolbar />);
-    
-    const saveButton = screen.getByRole('button', { name: /save/i });
-    expect(saveButton).toBeDisabled();
-  });
-
-  it('should enable save when drill exists', () => {
-    const drill = createDrill('test-id', 'Test Drill');
-    useDrillStore.setState({ drill });
-
-    render(<Toolbar />);
-    
-    const saveButton = screen.getByRole('button', { name: /save/i });
-    expect(saveButton).not.toBeDisabled();
+    expect(screen.getByText('Undo')).toBeInTheDocument();
+    expect(screen.getByText('Redo')).toBeInTheDocument();
   });
 
   it('should show drill name when drill exists', () => {

@@ -4,6 +4,7 @@ import { Drill, Frame, Horse, AudioTrack } from '../types';
 import { createDrill, createFrame } from '../types';
 import { generateId, generateShortId } from '../utils/uuid';
 import { useHistoryStore } from './historyStore';
+import { storageService } from '../services/storageService';
 
 interface DrillStore {
   drill: Drill | null;
@@ -28,7 +29,7 @@ interface DrillStore {
   
   // Audio
   setAudioTrack: (url: string, offset?: number, filename?: string) => void;
-  removeAudioTrack: () => void;
+  removeAudioTrack: () => Promise<void>;
   
   // Getters
   getCurrentFrame: () => Frame | null;
@@ -547,9 +548,19 @@ export const useDrillStore = create<DrillStore>()(
     });
   },
 
-  removeAudioTrack: () => {
+  removeAudioTrack: async () => {
     const { drill } = get();
     if (!drill || !drill.audioTrack) return;
+
+    // Delete audio file from storage if it's a storage URL (not a data URL)
+    if (drill.audioTrack.url && !drill.audioTrack.url.startsWith('data:')) {
+      try {
+        await storageService.deleteAudioFile(drill.audioTrack.url);
+      } catch (error) {
+        console.warn('Failed to delete audio file from storage:', error);
+        // Continue with removal even if storage deletion fails
+      }
+    }
 
     // Save previous state for undo
     const previousDrill = JSON.parse(JSON.stringify(drill));

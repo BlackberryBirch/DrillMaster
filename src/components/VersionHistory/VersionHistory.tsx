@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { drillService } from '../../services/drillService';
 import { DrillVersionRecord } from '../../types/database';
 import { Drill } from '../../types/drill';
@@ -17,13 +17,7 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: 
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && drillId) {
-      loadVersions();
-    }
-  }, [isOpen, drillId]);
-
-  const loadVersions = async () => {
+  const loadVersions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -38,7 +32,13 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: 
     } finally {
       setLoading(false);
     }
-  };
+  }, [drillId]);
+
+  useEffect(() => {
+    if (isOpen && drillId) {
+      loadVersions();
+    }
+  }, [isOpen, drillId, loadVersions]);
 
   const handleRestore = async (version: DrillVersionRecord) => {
     if (!confirm(`Are you sure you want to restore version ${version.version_number}? This will replace your current drill.`)) {
@@ -136,7 +136,7 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: 
                           Version {version.version_number}
                         </span>
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {format(new Date(version.created_at), 'MMM d, yyyy h:mm a')}
+                          {format(new Date(version.updated_at), 'MMM d, yyyy h:mm a')}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">

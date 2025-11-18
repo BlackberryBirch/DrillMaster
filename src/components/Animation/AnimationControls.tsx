@@ -3,13 +3,11 @@ import { useAnimationStore } from '../../stores/animationStore';
 import { useDrillStore } from '../../stores/drillStore';
 import { useAnimation } from '../../hooks/useAnimation';
 import { useAudio } from '../../hooks/useAudio';
+import AudioControl from './AudioControl';
 
 export default function AnimationControls() {
-  const [showAudioPopup, setShowAudioPopup] = useState(false);
   const [showSpeedPopup, setShowSpeedPopup] = useState(false);
-  const audioPopupRef = useRef<HTMLDivElement>(null);
   const speedPopupRef = useRef<HTMLDivElement>(null);
-  const audioButtonRef = useRef<HTMLButtonElement>(null);
   const speedButtonRef = useRef<HTMLButtonElement>(null);
   const state = useAnimationStore((state) => state.state);
   const play = useAnimationStore((state) => state.play);
@@ -17,17 +15,12 @@ export default function AnimationControls() {
   const stop = useAnimationStore((state) => state.stop);
   const playbackSpeed = useAnimationStore((state) => state.playbackSpeed);
   const setPlaybackSpeed = useAnimationStore((state) => state.setPlaybackSpeed);
-  const audioEnabled = useAnimationStore((state) => state.audioEnabled);
-  const toggleAudio = useAnimationStore((state) => state.toggleAudio);
-  const audioVolume = useAnimationStore((state) => state.audioVolume);
-  const setAudioVolume = useAnimationStore((state) => state.setAudioVolume);
   const currentTime = useAnimationStore((state) => state.currentTime);
   const setCurrentTime = useAnimationStore((state) => state.setCurrentTime);
 
   const drill = useDrillStore((state) => state.drill);
   const currentFrameIndex = useDrillStore((state) => state.currentFrameIndex);
   const setCurrentFrame = useDrillStore((state) => state.setCurrentFrame);
-  const setAudioTrack = useDrillStore((state) => state.setAudioTrack);
 
   // Start animation loop
   useAnimation();
@@ -49,44 +42,10 @@ export default function AnimationControls() {
     setCurrentTime(nextFrame.timestamp);
   };
 
-  const handleLoadAudio = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/*';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-
-      try {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const url = event.target?.result as string;
-          setAudioTrack(url, 0, file.name);
-        };
-        reader.onerror = () => {
-          alert('Failed to load audio file');
-        };
-        reader.readAsDataURL(file);
-      } catch (error) {
-        alert(`Failed to load audio: ${error}`);
-      }
-    };
-    input.click();
-  };
-
-  // Close popups when clicking outside or on the button again
+  // Close speed popup when clicking outside or on the button again
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
-      
-      // Check if click is on audio button or inside audio popup
-      if (showAudioPopup) {
-        const isAudioButton = audioButtonRef.current?.contains(target);
-        const isAudioPopup = audioPopupRef.current?.contains(target);
-        if (!isAudioButton && !isAudioPopup) {
-          setShowAudioPopup(false);
-        }
-      }
       
       // Check if click is on speed button or inside speed popup
       if (showSpeedPopup) {
@@ -98,16 +57,14 @@ export default function AnimationControls() {
       }
     };
 
-    if (showAudioPopup || showSpeedPopup) {
+    if (showSpeedPopup) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showAudioPopup, showSpeedPopup]);
-
-  const isMuted = !audioEnabled || audioVolume === 0;
+  }, [showSpeedPopup]);
 
   return (
     <div className="px-4 py-2 flex items-center gap-4">
@@ -178,58 +135,7 @@ export default function AnimationControls() {
       </div>
 
       {/* Audio Controls */}
-      <div className="relative">
-        <button
-          ref={audioButtonRef}
-          onClick={() => setShowAudioPopup(!showAudioPopup)}
-          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-          title="Audio Settings"
-        >
-          {isMuted ? '🔇' : '🔊'}
-        </button>
-        
-        {showAudioPopup && (
-          <div
-            ref={audioPopupRef}
-            className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg p-4 z-50 min-w-[200px]"
-          >
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={audioEnabled}
-                  onChange={toggleAudio}
-                />
-                <span>Audio Enabled</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 dark:text-gray-400 w-12">Volume:</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={audioVolume}
-                  onChange={(e) => setAudioVolume(parseFloat(e.target.value))}
-                  className="flex-1"
-                  disabled={!audioEnabled}
-                />
-                <span className="text-xs text-gray-600 dark:text-gray-400 w-10 text-right">
-                  {Math.round(audioVolume * 100)}%
-                </span>
-              </div>
-              <button
-                onClick={handleLoadAudio}
-                disabled={!drill}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed text-sm"
-                title="Load audio file"
-              >
-                🎵 Load Audio
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <AudioControl />
 
       {/* Timeline */}
       <div className="flex-1 mx-4">

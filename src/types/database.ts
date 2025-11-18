@@ -43,6 +43,7 @@ export interface DrillVersionRecord {
   audio_url: string | null;
   audio_filename: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 /**

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useDrillStore } from '../stores/drillStore';
 import { useAuthStore } from '../stores/authStore';
+import { useHistoryStore } from '../stores/historyStore';
 import { CloudStorageAdapter } from '../utils/cloudStorage';
 import { JSONFileFormatAdapter } from '../utils/fileIO';
 import { drillService } from '../services/drillService';
@@ -27,15 +28,17 @@ export function useAutoSave(options: UseAutoSaveOptions = {}): { isSaving: boole
 
   const drill = useDrillStore((state) => state.drill);
   const user = useAuthStore((state) => state.user);
+  const history = useHistoryStore((state) => state.history);
   const lastSavedRef = useRef<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const lastDrillHashRef = useRef<string>('');
+  const lastHistoryLengthRef = useRef<number>(0);
 
   // Generate a hash of the drill to detect changes
-  const getDrillHash = (drillData: typeof drill): string => {
+  const getDrillHash = useCallback((drillData: typeof drill): string => {
     if (!drillData) return '';
     // Simple hash based on drill content
     return JSON.stringify({
@@ -45,9 +48,9 @@ export function useAutoSave(options: UseAutoSaveOptions = {}): { isSaving: boole
       // Include a hash of frame data
       frameHashes: drillData.frames.map(f => `${f.id}-${f.horses.length}`).join(','),
     });
-  };
+  }, []);
 
-  const saveDrill = async () => {
+  const saveDrill = useCallback(async () => {
     if (!drill || !user || isSaving) {
       return;
     }
@@ -90,7 +93,34 @@ export function useAutoSave(options: UseAutoSaveOptions = {}): { isSaving: boole
       setIsSaving(false);
       setHasUnsavedChanges(false);
     }
-  };
+  }, [drill, user, isSaving, getDrillHash]);
+
+  // Queue save when history changes (undo/redo queue)
+  useEffect(() => {
+    if (!enabled || !user || !drill) {
+      return;
+    }
+
+    // Check if history length changed (new entry added)
+    if (history.length !== lastHistoryLengthRef.current && history.length > lastHistoryLengthRef.current) {
+      lastHistoryLengthRef.current = history.length;
+      
+      // Queue a save
+      if (!isSaving) {
+        // Clear existing timeout
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+
+        // Set new timeout for debounced save
+        saveTimeoutRef.current = setTimeout(() => {
+          saveDrill();
+        }, debounceMs);
+      }
+    } else {
+      lastHistoryLengthRef.current = history.length;
+    }
+  }, [history.length, enabled, user, drill, debounceMs, saveDrill, isSaving]);
 
   // Debounced save after changes
   useEffect(() => {
@@ -125,8 +155,7 @@ export function useAutoSave(options: UseAutoSaveOptions = {}): { isSaving: boole
         clearTimeout(saveTimeoutRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drill, enabled, user, debounceMs]);
+  }, [drill, enabled, user, debounceMs, saveDrill, getDrillHash, isSaving]);
 
   // Periodic save (interval-based)
   useEffect(() => {
@@ -143,7 +172,7 @@ export function useAutoSave(options: UseAutoSaveOptions = {}): { isSaving: boole
         clearInterval(intervalRef.current);
       }
     };
-  }, [enabled, user, drill, interval]);
+  }, [enabled, user, drill, interval, saveDrill]);
 
   // Cleanup on unmount
   useEffect(() => {
