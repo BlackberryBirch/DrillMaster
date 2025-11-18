@@ -18,15 +18,28 @@ export function useAudio() {
   const audioOffsetRef = useRef<number>(0);
   const isSeekingRef = useRef<boolean>(false);
 
-  // Initialize audio element
+  // Initialize audio element (only once, not on every drill change)
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
       audioRef.current.preload = 'auto';
       
-      // Handle audio errors
+      // Handle audio errors - only log if there's actually an audio track and a real error
       audioRef.current.addEventListener('error', (e) => {
-        console.error('Audio playback error:', e);
+        const audio = e.target as HTMLAudioElement;
+        // Only log if there's a source and a meaningful error
+        if (audio.src && audio.error) {
+          const errorCode = audio.error.code;
+          // MEDIA_ERR_ABORTED (1) and MEDIA_ERR_NETWORK (2) are often expected during loading
+          // Only log MEDIA_ERR_DECODE (3) and MEDIA_ERR_SRC_NOT_SUPPORTED (4) as real errors
+          if (errorCode === 3 || errorCode === 4) {
+            console.error('Audio playback error:', {
+              code: errorCode,
+              message: errorCode === 3 ? 'Decode error' : 'Source not supported',
+              src: audio.src.substring(0, 100), // Log first 100 chars of URL
+            });
+          }
+        }
       });
 
       // Note: We don't sync animation time from audio time
@@ -40,13 +53,14 @@ export function useAudio() {
     }
 
     return () => {
+      // Only cleanup on unmount, not on every drill change
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
         audioRef.current = null;
       }
     };
-  }, [drill]);
+  }, []); // Empty dependency array - only create once
 
   // Update audio source when drill changes
   useEffect(() => {
@@ -107,7 +121,10 @@ export function useAudio() {
       // Play audio if not already playing
       if (audio.paused) {
         audio.play().catch((error) => {
-          console.error('Failed to play audio:', error);
+          // Only log if it's not a user interaction error (common when autoplay is blocked)
+          if (error.name !== 'NotAllowedError' && error.name !== 'NotSupportedError') {
+            console.error('Failed to play audio:', error);
+          }
         });
       }
     } else if (animationState === 'paused') {
