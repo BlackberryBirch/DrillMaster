@@ -317,11 +317,14 @@ export class DrillService {
         : false;
 
       if (shouldUpdateExisting && latestVersion) {
+        // Serialize drill data properly for JSONB (convert Date objects to strings)
+        const serializedDrill = JSON.parse(JSON.stringify(drill));
+        
         // Update the existing version
         const { data, error } = await supabase
           .from('drill_versions')
           .update({
-            drill_data: drill as unknown as Record<string, unknown>,
+            drill_data: serializedDrill,
             name: drill.name,
             audio_url: audioUrl || null,
             audio_filename: audioFilename || null,
@@ -341,13 +344,16 @@ export class DrillService {
         if (!data) {
           // Row was not found or not updated, create a new version instead
           const nextVersion = latestVersion.version_number + 1;
+          // Serialize drill data properly for JSONB (convert Date objects to strings)
+          const serializedDrill = JSON.parse(JSON.stringify(drill));
+          
           const { data: newData, error: insertError } = await supabase
             .from('drill_versions')
             .insert({
               drill_id: drillId,
               user_id: user.id,
               version_number: nextVersion,
-              drill_data: drill as unknown as Record<string, unknown>,
+              drill_data: serializedDrill,
               name: drill.name,
               audio_url: audioUrl || null,
               audio_filename: audioFilename || null,
@@ -376,6 +382,8 @@ export class DrillService {
       } else {
         // Create a new version
         const nextVersion = latestVersion ? latestVersion.version_number + 1 : 1;
+        // Serialize drill data properly for JSONB (convert Date objects to strings)
+        const serializedDrill = JSON.parse(JSON.stringify(drill));
 
         const { data, error } = await supabase
           .from('drill_versions')
@@ -383,7 +391,7 @@ export class DrillService {
             drill_id: drillId,
             user_id: user.id,
             version_number: nextVersion,
-            drill_data: drill as unknown as Record<string, unknown>,
+            drill_data: serializedDrill,
             name: drill.name,
             audio_url: audioUrl || null,
             audio_filename: audioFilename || null,
