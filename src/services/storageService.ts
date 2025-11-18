@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase';
  */
 export class StorageService {
   private readonly BUCKET_NAME = 'drill-audio';
-  private currentUploadAbortController: AbortController | null = null;
 
   /**
    * Upload an audio file to Supabase Storage
@@ -19,7 +18,6 @@ export class StorageService {
   ): { promise: Promise<{ url: string | null; error: Error | null }>; abort: () => void } {
     // Create abort controller and cancellation state for this upload
     const abortController = new AbortController();
-    this.currentUploadAbortController = abortController;
     
     let isCancelled = false;
     let uploadedFilePath: string | null = null;
@@ -27,7 +25,6 @@ export class StorageService {
     const abort = () => {
       isCancelled = true;
       abortController.abort();
-      this.currentUploadAbortController = null;
       
       // Try to clean up uploaded file if upload was in progress
       if (uploadedFilePath) {
@@ -74,8 +71,6 @@ export class StorageService {
             upsert: false,
           });
 
-        this.currentUploadAbortController = null;
-
         // Store the uploaded file path for potential cleanup
         if (data?.path) {
           uploadedFilePath = data.path;
@@ -115,8 +110,6 @@ export class StorageService {
           error: null,
         };
       } catch (error) {
-        this.currentUploadAbortController = null;
-        
         if (isCancelled || abortController.signal.aborted) {
           return {
             url: null,
