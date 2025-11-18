@@ -317,6 +317,7 @@ export class DrillService {
         : false;
 
       if (shouldUpdateExisting && latestVersion) {
+        console.log(`[DrillService] Updating existing version ${latestVersion.version_number} for drill ${drillId} (${drill.name})`);
         // Serialize drill data properly for JSONB (convert Date objects to strings)
         const serializedDrill = JSON.parse(JSON.stringify(drill));
         
@@ -343,6 +344,7 @@ export class DrillService {
 
         if (!data) {
           // Row was not found or not updated, create a new version instead
+          console.log(`[DrillService] Update returned no data, falling back to creating new version for drill ${drillId}`);
           // Re-query to get the actual latest version number (handles race conditions)
           const { data: actualLatestVersion } = await supabase
             .from('drill_versions')
@@ -354,6 +356,7 @@ export class DrillService {
             .maybeSingle();
           
           const nextVersion = actualLatestVersion ? actualLatestVersion.version_number + 1 : 1;
+          console.log(`[DrillService] Creating new version ${nextVersion} for drill ${drillId} (${drill.name})`);
           // Serialize drill data properly for JSONB (convert Date objects to strings)
           const serializedDrill = JSON.parse(JSON.stringify(drill));
           
@@ -375,6 +378,7 @@ export class DrillService {
           if (insertError) {
             // If duplicate key error, retry with next version number
             if (insertError.code === '23505' && insertError.message.includes('drill_versions_drill_id_version_number_key')) {
+              console.log(`[DrillService] Duplicate key error detected, retrying with next version number for drill ${drillId}`);
               // Query again and try with the next version
               const { data: retryLatestVersion } = await supabase
                 .from('drill_versions')
@@ -386,6 +390,7 @@ export class DrillService {
                 .maybeSingle();
               
               const retryNextVersion = retryLatestVersion ? retryLatestVersion.version_number + 1 : 1;
+              console.log(`[DrillService] Retrying: Creating new version ${retryNextVersion} for drill ${drillId} (${drill.name})`);
               
               const { data: retryData, error: retryError } = await supabase
                 .from('drill_versions')
@@ -403,36 +408,47 @@ export class DrillService {
                 .single();
 
               if (retryError) {
+                console.error(`[DrillService] Failed to create version ${retryNextVersion} after retry:`, retryError.message);
                 return {
                   data: null,
                   error: new Error(`Failed to create drill version: ${retryError.message}`),
                 };
               }
 
+              console.log(`[DrillService] Successfully created version ${retryNextVersion} for drill ${drillId} (${drill.name})`);
               return {
                 data: retryData as DrillVersionRecord,
                 error: null,
               };
             }
             
+            console.error(`[DrillService] Failed to create version ${nextVersion}:`, insertError.message);
             return {
               data: null,
               error: new Error(`Failed to create drill version: ${insertError.message}`),
             };
           }
 
+          console.log(`[DrillService] Successfully created version ${nextVersion} for drill ${drillId} (${drill.name})`);
           return {
             data: newData as DrillVersionRecord,
             error: null,
           };
         }
 
+        console.log(`[DrillService] Successfully updated version ${latestVersion.version_number} for drill ${drillId} (${drill.name})`);
         return {
           data: data as DrillVersionRecord,
           error: null,
         };
       } else {
         // Create a new version
+        if (latestVersion) {
+          const ageMinutes = (now.getTime() - new Date(latestVersion.created_at).getTime()) / (60 * 1000);
+          console.log(`[DrillService] Latest version ${latestVersion.version_number} is ${ageMinutes.toFixed(1)} minutes old (>15 min), creating new version for drill ${drillId} (${drill.name})`);
+        } else {
+          console.log(`[DrillService] No existing versions found, creating first version for drill ${drillId} (${drill.name})`);
+        }
         // Re-query to get the actual latest version number (handles race conditions)
         const { data: actualLatestVersion } = await supabase
           .from('drill_versions')
@@ -444,6 +460,7 @@ export class DrillService {
           .maybeSingle();
         
         const nextVersion = actualLatestVersion ? actualLatestVersion.version_number + 1 : 1;
+        console.log(`[DrillService] Creating new version ${nextVersion} for drill ${drillId} (${drill.name})`);
         // Serialize drill data properly for JSONB (convert Date objects to strings)
         const serializedDrill = JSON.parse(JSON.stringify(drill));
 
@@ -465,6 +482,7 @@ export class DrillService {
         if (error) {
           // If duplicate key error, retry with next version number
           if (error.code === '23505' && error.message.includes('drill_versions_drill_id_version_number_key')) {
+            console.log(`[DrillService] Duplicate key error detected, retrying with next version number for drill ${drillId}`);
             // Query again and try with the next version
             const { data: retryLatestVersion } = await supabase
               .from('drill_versions')
@@ -476,6 +494,7 @@ export class DrillService {
               .maybeSingle();
             
             const retryNextVersion = retryLatestVersion ? retryLatestVersion.version_number + 1 : 1;
+            console.log(`[DrillService] Retrying: Creating new version ${retryNextVersion} for drill ${drillId} (${drill.name})`);
             
             const { data: retryData, error: retryError } = await supabase
               .from('drill_versions')
@@ -493,24 +512,28 @@ export class DrillService {
               .single();
 
             if (retryError) {
+              console.error(`[DrillService] Failed to create version ${retryNextVersion} after retry:`, retryError.message);
               return {
                 data: null,
                 error: new Error(`Failed to create drill version: ${retryError.message}`),
               };
             }
 
+            console.log(`[DrillService] Successfully created version ${retryNextVersion} for drill ${drillId} (${drill.name})`);
             return {
               data: retryData as DrillVersionRecord,
               error: null,
             };
           }
           
+          console.error(`[DrillService] Failed to create version ${nextVersion}:`, error.message);
           return {
             data: null,
             error: new Error(`Failed to create drill version: ${error.message}`),
           };
         }
 
+        console.log(`[DrillService] Successfully created version ${nextVersion} for drill ${drillId} (${drill.name})`);
         return {
           data: data as DrillVersionRecord,
           error: null,
