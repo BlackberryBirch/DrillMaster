@@ -1,5 +1,5 @@
 import { Drill, FileFormatAdapter } from '../types';
-import { drillService, DrillService } from '../services/drillService';
+import { drillService } from '../services/drillService';
 import { DatabaseResult } from '../types/database';
 import { supabase } from '../lib/supabase';
 
@@ -51,16 +51,13 @@ export class CloudStorageAdapter implements FileFormatAdapter {
 
       const input = {
         name: drill.name,
-        drill_data: drill,
-        audio_url: drill.audioTrack?.url || undefined,
-        audio_filename: drill.audioTrack?.filename || undefined,
+        short_id: drill.id,
       };
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let result: DatabaseResult<any>;
       
       // Use drill.id (short ID) to find existing drill
-      // Try to find existing drill by short ID stored in drill_data
       let existingDrillId: string | undefined;
       
       if (!drillId) {
@@ -89,6 +86,22 @@ export class CloudStorageAdapter implements FileFormatAdapter {
         };
       }
 
+      // Now create a version with the drill data
+      // Get the database UUID (either from result or targetId)
+      const dbDrillId = result.data?.id || targetId;
+      if (dbDrillId) {
+        const versionResult = await drillService.createDrillVersion(
+          dbDrillId,
+          drill,
+          drill.audioTrack?.url || null,
+          drill.audioTrack?.filename || null
+        );
+        if (versionResult.error) {
+          console.warn('Failed to create version:', versionResult.error);
+          // Don't fail the save if version creation fails
+        }
+      }
+
       // Return the drill.id (short ID) for URL usage, not the database UUID
       return {
         data: drill.id,
@@ -104,10 +117,13 @@ export class CloudStorageAdapter implements FileFormatAdapter {
 
   /**
    * Load drill from cloud storage by short ID (used in URLs)
+   * Loads the latest version of the drill
    */
   async loadDrillFromCloud(drillId: string): Promise<DatabaseResult<Drill>> {
     try {
-      const result = drillId.length > 8 ? await drillService.getDrillById(drillId) : await drillService.getDrillByShortId(drillId);
+      const result = drillId.length > 8 
+        ? await drillService.getDrillWithLatestVersion(drillId)
+        : await drillService.getDrillByShortIdWithVersion(drillId);
       
       if (result.error) {
         return {
@@ -116,10 +132,15 @@ export class CloudStorageAdapter implements FileFormatAdapter {
         };
       }
 
-      const drill = DrillService.recordToDrill(result.data!);
+      if (!result.data) {
+        return {
+          data: null,
+          error: new Error('Drill data not found'),
+        };
+      }
 
       return {
-        data: drill,
+        data: result.data.drill,
         error: null,
       };
     } catch (error) {
@@ -145,7 +166,7 @@ export class CloudStorageAdapter implements FileFormatAdapter {
       }
 
       const drills = result.data!.map(record => ({
-        id: (record.drill_data as Drill).id, // Use short ID from drill_data for URLs
+        id: record.short_id, // Use short_id column for URLs
         name: record.name,
         updatedAt: new Date(record.updated_at),
         databaseId: record.id, // Keep database UUID for deletion

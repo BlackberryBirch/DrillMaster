@@ -5,7 +5,12 @@ import Toolbar from './Toolbar';
 import AnimationControls from '../Animation/AnimationControls';
 import PropertiesPanel from './PropertiesPanel';
 
-export default function Layout() {
+interface LayoutProps {
+  onOpenVersionHistory?: () => void;
+  isSaving?: boolean;
+}
+
+export default function Layout({ onOpenVersionHistory, isSaving = false }: LayoutProps) {
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(false);
 
   return (
@@ -14,6 +19,8 @@ export default function Layout() {
       <Toolbar 
         onTogglePropertiesPanel={() => setShowPropertiesPanel(!showPropertiesPanel)}
         showPropertiesPanel={showPropertiesPanel}
+        onOpenVersionHistory={onOpenVersionHistory}
+        isSaving={isSaving}
       />
 
       {/* Main Content Area */}

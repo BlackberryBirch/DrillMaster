@@ -3,14 +3,13 @@ import { Drill } from './drill';
 /**
  * Database representation of a drill
  * This is what gets stored in Supabase
+ * Note: drill_data is now stored in drill_versions, not in the drills table
  */
 export interface DrillRecord {
   id: string;
   user_id: string;
   name: string;
-  drill_data: Drill; // Stored as JSONB in PostgreSQL
-  audio_url: string | null;
-  audio_filename: string | null;
+  short_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -20,9 +19,7 @@ export interface DrillRecord {
  */
 export interface CreateDrillInput {
   name: string;
-  drill_data: Drill;
-  audio_url?: string;
-  audio_filename?: string;
+  short_id: string;
 }
 
 /**
@@ -30,9 +27,22 @@ export interface CreateDrillInput {
  */
 export interface UpdateDrillInput {
   name?: string;
-  drill_data?: Drill;
-  audio_url?: string;
-  audio_filename?: string;
+  short_id?: string;
+}
+
+/**
+ * Database representation of a drill version
+ */
+export interface DrillVersionRecord {
+  id: string;
+  drill_id: string;
+  user_id: string;
+  version_number: number;
+  drill_data: Drill;
+  name: string;
+  audio_url: string | null;
+  audio_filename: string | null;
+  created_at: string;
 }
 
 /**

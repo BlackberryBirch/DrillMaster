@@ -27,6 +27,7 @@ export default function AnimationControls() {
   const drill = useDrillStore((state) => state.drill);
   const currentFrameIndex = useDrillStore((state) => state.currentFrameIndex);
   const setCurrentFrame = useDrillStore((state) => state.setCurrentFrame);
+  const setAudioTrack = useDrillStore((state) => state.setAudioTrack);
 
   // Start animation loop
   useAnimation();
@@ -46,6 +47,31 @@ export default function AnimationControls() {
     const nextFrame = drill.frames[currentFrameIndex + 1];
     setCurrentFrame(currentFrameIndex + 1);
     setCurrentTime(nextFrame.timestamp);
+  };
+
+  const handleLoadAudio = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const url = event.target?.result as string;
+          setAudioTrack(url, 0, file.name);
+        };
+        reader.onerror = () => {
+          alert('Failed to load audio file');
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        alert(`Failed to load audio: ${error}`);
+      }
+    };
+    input.click();
   };
 
   // Close popups when clicking outside or on the button again
@@ -192,6 +218,14 @@ export default function AnimationControls() {
                   {Math.round(audioVolume * 100)}%
                 </span>
               </div>
+              <button
+                onClick={handleLoadAudio}
+                disabled={!drill}
+                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed text-sm"
+                title="Load audio file"
+              >
+                🎵 Load Audio
+              </button>
             </div>
           </div>
         )}

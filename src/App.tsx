@@ -5,8 +5,11 @@ import { useThemeStore } from './stores/themeStore';
 import { useAuthStore } from './stores/authStore';
 import Layout from './components/UI/Layout';
 import Home from './components/Home/Home';
+import VersionHistory from './components/VersionHistory/VersionHistory';
 import { CloudStorageAdapter } from './utils/cloudStorage';
 import { JSONFileFormatAdapter } from './utils/fileIO';
+import { useAutoSave } from './hooks/useAutoSave';
+import { drillService } from './services/drillService';
 
 // Cloud storage adapter instance
 const cloudAdapter = new CloudStorageAdapter(new JSONFileFormatAdapter());
@@ -23,6 +26,15 @@ function DrillEditor() {
   const [saving, setSaving] = useState(false);
   const isLoadingRef = useRef(false);
   const loadedDrillIdRef = useRef<string | null>(null);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [databaseDrillId, setDatabaseDrillId] = useState<string | null>(null);
+
+  // Enable auto-save when user is authenticated and drill exists
+  const { isSaving, hasUnsavedChanges } = useAutoSave({
+    enabled: !!user && !!drill && drillId !== 'new',
+    interval: 30000, // Save every 30 seconds
+    debounceMs: 5000, // Save 5 seconds after last change
+  });
 
   useEffect(() => {
     const loadDrill = async () => {
@@ -56,6 +68,11 @@ function DrillEditor() {
             // Only set drill if it matches the current URL
             if (result.data.id === drillId) {
               setDrill(result.data, false, false);
+              // Get the database UUID for version history
+              const dbResult = await drillService.getDrillByShortId(drillId);
+              if (dbResult.data) {
+                setDatabaseDrillId(dbResult.data.id);
+              }
             } else {
               // Drill ID mismatch - this shouldn't happen, but handle it gracefully
               console.warn(`Drill ID mismatch: URL has ${drillId}, but loaded drill has ${result.data.id}`);
@@ -141,6 +158,38 @@ function DrillEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drill?.id, loading]); // Only depend on drill.id to update URL after cloud save
 
+  // Update database drill ID when drill changes (for version history)
+  useEffect(() => {
+    const updateDatabaseId = async () => {
+      if (drill && drill.id && drillId && drillId !== 'new') {
+        const dbResult = await drillService.getDrillByShortId(drill.id);
+        if (dbResult.data) {
+          setDatabaseDrillId(dbResult.data.id);
+        }
+      }
+    };
+    updateDatabaseId();
+  }, [drill?.id, drillId]);
+
+  const handleRestoreVersion = async (restoredDrill: typeof drill) => {
+    if (!restoredDrill) return;
+    
+    // Set the restored drill
+    setDrill(restoredDrill, false, false);
+    
+    // Save it to update the main drill record
+    if (user) {
+      setSaving(true);
+      try {
+        await cloudAdapter.saveDrillToCloud(restoredDrill);
+      } catch (err) {
+        console.error('Failed to save restored drill:', err);
+      } finally {
+        setSaving(false);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full h-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
@@ -170,7 +219,22 @@ function DrillEditor() {
     );
   }
 
-  return <Layout />;
+  return (
+    <>
+      <Layout 
+        onOpenVersionHistory={() => setShowVersionHistory(true)}
+        isSaving={isSaving || hasUnsavedChanges}
+      />
+      {databaseDrillId && (
+        <VersionHistory
+          drillId={databaseDrillId}
+          isOpen={showVersionHistory}
+          onClose={() => setShowVersionHistory(false)}
+          onRestore={handleRestoreVersion}
+        />
+      )}
+    </>
+  );
 }
 
 function App() {

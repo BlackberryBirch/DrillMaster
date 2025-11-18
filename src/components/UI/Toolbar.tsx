@@ -1,110 +1,23 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDrillStore } from '../../stores/drillStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useAuthStore } from '../../stores/authStore';
-import { fileIO } from '../../utils/fileIO';
-import { CloudStorageAdapter } from '../../utils/cloudStorage';
-import { JSONFileFormatAdapter } from '../../utils/fileIO';
 import AuthButton from '../Auth/AuthButton';
 import Logo from './Logo';
-
-// Cloud storage adapter instance
-const cloudAdapter = new CloudStorageAdapter(new JSONFileFormatAdapter());
 
 interface ToolbarProps {
   onTogglePropertiesPanel?: () => void;
   showPropertiesPanel?: boolean;
+  onOpenVersionHistory?: () => void;
+  isSaving?: boolean;
 }
 
-export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel = false }: ToolbarProps) {
+export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel = false, onOpenVersionHistory, isSaving = false }: ToolbarProps) {
   const navigate = useNavigate();
   const drill = useDrillStore((state) => state.drill);
-  const setDrill = useDrillStore((state) => state.setDrill);
-  const createNewDrill = useDrillStore((state) => state.createNewDrill);
-  const setAudioTrack = useDrillStore((state) => state.setAudioTrack);
   const removeAudioTrack = useDrillStore((state) => state.removeAudioTrack);
   const user = useAuthStore((state) => state.user);
-  const [saving, setSaving] = useState(false);
-
-  const handleNew = () => {
-    if (confirm('Create a new drill? Unsaved changes will be lost.')) {
-      createNewDrill('New Drill');
-    }
-  };
-
-  const handleSave = async () => {
-    if (!drill) return;
-
-    // If user is authenticated, save to cloud storage
-    if (user) {
-      setSaving(true);
-      try {
-        const result = await cloudAdapter.saveDrillToCloud(drill);
-        if (result.error) {
-          alert(`Failed to save to cloud: ${result.error.message}`);
-        } else {
-          // Success - optionally show a brief success message
-          // The URL will be updated automatically by App.tsx
-        }
-      } catch (error) {
-        alert(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      } finally {
-        setSaving(false);
-      }
-    } else {
-      // User not authenticated - save locally as fallback
-      try {
-        await fileIO.saveDrill(drill);
-      } catch (error) {
-        alert(`Failed to save: ${error}`);
-      }
-    }
-  };
-
-  const handleLoad = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.drill.json';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-
-      try {
-        const loadedDrill = await fileIO.loadDrill(file);
-        setDrill(loadedDrill);
-      } catch (error) {
-        alert(`Failed to load: ${error}`);
-      }
-    };
-    input.click();
-  };
-
-  const handleLoadAudio = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/*';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-
-      try {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const url = event.target?.result as string;
-          setAudioTrack(url, 0, file.name);
-        };
-        reader.onerror = () => {
-          alert('Failed to load audio file');
-        };
-        reader.readAsDataURL(file);
-      } catch (error) {
-        alert(`Failed to load audio: ${error}`);
-      }
-    };
-    input.click();
-  };
 
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
@@ -128,34 +41,6 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
         <Logo size={32} />
       </button>
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-      <button
-        onClick={handleNew}
-        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-      >
-        New
-      </button>
-      <button
-        onClick={handleLoad}
-        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-      >
-        Load
-      </button>
-      <button
-        onClick={handleSave}
-        disabled={!drill || saving}
-        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-        title={user ? 'Save to cloud storage' : 'Save to local file (sign in to save to cloud)'}
-      >
-        {saving ? 'Saving...' : user ? '💾 Save to Cloud' : '💾 Save'}
-      </button>
-      <button
-        onClick={handleLoadAudio}
-        disabled={!drill}
-        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
-        title="Load audio file"
-      >
-        🎵 Load Audio
-      </button>
       {drill?.audioTrack && (
         <button
           onClick={removeAudioTrack}
@@ -183,6 +68,11 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
         Redo
       </button>
       <div className="flex-1" />
+      {user && isSaving && (
+        <span className="text-sm text-gray-400 dark:text-gray-500 italic mr-2">
+          Saving to cloud...
+        </span>
+      )}
       {drill && (
         <span className="text-sm text-gray-600 dark:text-gray-300">{drill.name}</span>
       )}
@@ -198,6 +88,15 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
           title="Toggle Properties Panel"
         >
           ⚙️ Properties
+        </button>
+      )}
+      {onOpenVersionHistory && user && drill && (
+        <button
+          onClick={onOpenVersionHistory}
+          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+          title="View Version History"
+        >
+          📜 History
         </button>
       )}
       <AuthButton />
