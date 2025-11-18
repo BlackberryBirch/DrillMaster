@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { useDrillStore } from './stores/drillStore';
 import { useThemeStore } from './stores/themeStore';
@@ -21,18 +21,28 @@ function DrillEditor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const isLoadingRef = useRef(false);
+  const loadedDrillIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const loadDrill = async () => {
       if (drillId === 'new') {
         // Create a new drill
         createNewDrill('New Drill');
+        loadedDrillIdRef.current = null;
         // The URL will be updated when the drill gets an ID
         return;
       }
 
       if (drillId) {
+        // Skip if we're already loading this drill
+        if (isLoadingRef.current && loadedDrillIdRef.current === drillId) {
+          return;
+        }
+
         // Load drill from cloud storage
+        isLoadingRef.current = true;
+        loadedDrillIdRef.current = drillId;
         setLoading(true);
         setError(null);
         try {
@@ -41,14 +51,26 @@ function DrillEditor() {
             setError(result.error.message);
             // If drill not found, redirect to home
             navigate('/', { replace: true });
+            loadedDrillIdRef.current = null;
           } else if (result.data) {
-            setDrill(result.data, false, false);
+            // Only set drill if it matches the current URL
+            if (result.data.id === drillId) {
+              setDrill(result.data, false, false);
+            } else {
+              // Drill ID mismatch - this shouldn't happen, but handle it gracefully
+              console.warn(`Drill ID mismatch: URL has ${drillId}, but loaded drill has ${result.data.id}`);
+              setError('Drill ID mismatch');
+              navigate('/', { replace: true });
+              loadedDrillIdRef.current = null;
+            }
           }
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to load drill');
           navigate('/', { replace: true });
+          loadedDrillIdRef.current = null;
         } finally {
           setLoading(false);
+          isLoadingRef.current = false;
         }
       }
     };
@@ -95,16 +117,29 @@ function DrillEditor() {
   }, [drill?.id, drillId, user]); // Save when drill is created and user is authenticated
 
   // Update URL when drill is saved to cloud (drill.id changes)
+  // But only if we're not currently loading a drill
   useEffect(() => {
+    // Don't update URL if we're loading
+    if (isLoadingRef.current || loading) {
+      return;
+    }
+
+    // Don't update URL if we just loaded this drill from the URL
+    if (drill && drill.id && loadedDrillIdRef.current === drill.id) {
+      return;
+    }
+
     if (drill && drill.id && drillId && drillId !== 'new' && drillId !== drill.id) {
-      // Update URL if drill ID doesn't match URL
+      // Update URL if drill ID doesn't match URL (e.g., after saving)
       navigate(`/drill/${drill.id}`, { replace: true });
+      loadedDrillIdRef.current = drill.id;
     } else if (drill && drill.id && drillId === 'new') {
       // New drill created, update URL with the ID
       navigate(`/drill/${drill.id}`, { replace: true });
+      loadedDrillIdRef.current = drill.id;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drill?.id]); // Only depend on drill.id to update URL after cloud save
+  }, [drill?.id, loading]); // Only depend on drill.id to update URL after cloud save
 
   if (loading) {
     return (
