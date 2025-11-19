@@ -28,7 +28,6 @@ export const ARROW_GAIT_THRESHOLDS = {
 /**
  * Drag interaction constants
  */
-export const DRAG_DISTANCE_THRESHOLD = 3; // Pixels - minimum movement to consider a drag
 export const ARROW_HANDLE_RADIUS = 8; // Pixels - invisible handle size for arrow end
 
 /**

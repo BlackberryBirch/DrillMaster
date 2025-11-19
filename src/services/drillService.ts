@@ -648,46 +648,56 @@ export class DrillService {
     // Restore audio track from version's audio_url (prioritize this over drill_data)
     // The audio_url in the version is the source of truth for the audio file location
     if (latestVersion.audio_url) {
-      // The audio_url from the database is always a storage path (never a signed URL)
-      const storagePath = latestVersion.audio_url;
+      const audioUrl = latestVersion.audio_url;
       console.log('[DrillService] Loading audio track:', {
-        storagePath: storagePath,
+        audioUrl: audioUrl,
         filename: latestVersion.audio_filename,
       });
       
-      // Convert storage path to signed URL for playback
-      // The storage path is never a full URL - it's always a path like "user_id/drillId/timestamp.mp3"
-      console.log('[DrillService] Converting storage path to signed URL:', storagePath);
-      const { data: urlData, error } = await supabase.storage
-        .from('drill-audio')
-        .createSignedUrl(storagePath, 3600); // 1 hour expiration
+      // Check if audio_url is already a full URL (starts with http:// or https://)
+      // If it is, use it directly. Otherwise, treat it as a storage path and create a signed URL
+      const isFullUrl = audioUrl.startsWith('http://') || audioUrl.startsWith('https://');
       
-      if (error) {
-        console.error('[DrillService] Failed to create signed URL for audio:', {
-          error,
-          storagePath: storagePath,
+      let signedUrl: string;
+      if (isFullUrl) {
+        // Already a full URL, use it directly
+        signedUrl = audioUrl;
+        console.log('[DrillService] Using provided URL directly:', audioUrl);
+      } else {
+        // Convert storage path to signed URL for playback
+        // The storage path is a path like "user_id/drillId/timestamp.mp3"
+        console.log('[DrillService] Converting storage path to signed URL:', audioUrl);
+        const { data: urlData, error } = await supabase.storage
+          .from('drill-audio')
+          .createSignedUrl(audioUrl, 3600); // 1 hour expiration
+        
+        if (error) {
+          console.error('[DrillService] Failed to create signed URL for audio:', {
+            error,
+            storagePath: audioUrl,
+          });
+          // If signed URL creation fails, clear the audio track
+          drill.audioTrack = undefined;
+          return drill;
+        }
+        
+        signedUrl = urlData.signedUrl;
+        console.log('[DrillService] Successfully created signed URL:', {
+          storagePath: audioUrl,
+          signedUrl: signedUrl.substring(0, 100) + '...', // Log first 100 chars
         });
-        // If signed URL creation fails, clear the audio track
-        drill.audioTrack = undefined;
-        return drill;
       }
-      
-      const signedUrl = urlData.signedUrl;
-      console.log('[DrillService] Successfully created signed URL:', {
-        storagePath: storagePath,
-        signedUrl: signedUrl.substring(0, 100) + '...', // Log first 100 chars
-      });
       
       // Set audio track with both storagePath (for saving) and url (for playback)
       // storagePath is what gets saved to DB, url is temporary for playback
       drill.audioTrack = {
-        url: signedUrl, // Temporary signed URL for playback
-        storagePath: storagePath, // Storage path saved to DB
+        url: signedUrl, // URL for playback (signed URL or full URL)
+        storagePath: isFullUrl ? undefined : audioUrl, // Storage path saved to DB (only if it was a storage path)
         offset: drill.audioTrack?.offset || 0,
         filename: latestVersion.audio_filename || undefined,
       };
       console.log('[DrillService] Audio track set:', {
-        storagePath: storagePath,
+        storagePath: isFullUrl ? undefined : audioUrl,
         url: signedUrl.substring(0, 100) + '...',
         offset: drill.audioTrack.offset,
         filename: drill.audioTrack.filename,

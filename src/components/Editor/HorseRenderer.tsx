@@ -6,7 +6,6 @@ import {
   HORSE_LENGTH_METERS,
   HORSE_WIDTH_RATIO,
   ARROW_LENGTH_MULTIPLIERS,
-  DRAG_DISTANCE_THRESHOLD,
   ARROW_HANDLE_RADIUS,
   HORSE_RENDERING,
   HORSE_LABEL,
@@ -98,21 +97,28 @@ export default function HorseRenderer({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDragMove = (e: any) => {
-    // During drag, update positions in real-time
     const node = e.target;
+    const nativeEvent = e.evt || e;
     
-    // Check if mouse actually moved (not just a click)
-    if (dragStartPosRef.current) {
-      const dx = node.x() - dragStartPosRef.current.x;
-      const dy = node.y() - dragStartPosRef.current.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      // Only consider it a drag if moved more than threshold
-      if (distance > DRAG_DISTANCE_THRESHOLD) {
-        hasDraggedRef.current = true;
+    // Check if mouse button is actually pressed by checking the event
+    // For mousemove events, use 'buttons' (plural) which is a bitmask
+    // 0 = no buttons, 1 = left button, 2 = right button, 4 = middle button, etc.
+    const buttons = nativeEvent.buttons !== undefined ? nativeEvent.buttons : 
+                    (nativeEvent.which !== undefined && nativeEvent.which > 0 ? 1 : 0);
+    
+    // If mouse button is not pressed (buttons === 0), stop the drag
+    // This prevents the horse from moving when you release the mouse and then move the cursor
+    if (buttons === 0) {
+      node.stopDrag();
+      if (dragStartPosRef.current) {
+        node.position(dragStartPosRef.current);
       }
+      hasDraggedRef.current = false;
+      return;
     }
     
+    // Mark as dragged and update position
+    hasDraggedRef.current = true;
     if (onDragMove) {
       onDragMove(node.x(), node.y());
     }
@@ -237,7 +243,6 @@ export default function HorseRenderer({
             y={y}
             rotation={rotationDegrees}
             draggable={draggable}
-            dragDistance={DRAG_DISTANCE_THRESHOLD}
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
