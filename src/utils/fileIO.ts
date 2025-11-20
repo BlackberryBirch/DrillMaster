@@ -19,11 +19,12 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
       },
       audioTrack: drill.audioTrack ? {
         // Exclude url (signed URL) - only save storagePath
+        // url will be reconstructed when loading from storagePath
         storagePath: drill.audioTrack.storagePath,
         offset: drill.audioTrack.offset,
         filename: drill.audioTrack.filename,
       } : undefined,
-    };
+    } as Drill; // Type assertion: url is intentionally omitted and will be reconstructed on load
 
     const file: DrillFile = {
       version: this.version,
