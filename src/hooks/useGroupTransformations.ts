@@ -8,7 +8,7 @@ import { useDrillStore } from '../stores/drillStore';
 const ENABLE_TRACING = false;
 
 // Tracing utility
-const trace = (category: string, message: string, data?: any) => {
+const trace = (category: string, message: string, data?: unknown) => {
   if (ENABLE_TRACING) {
     const timestamp = new Date().toISOString();
     const logData = data ? { ...data, timestamp } : { timestamp };
@@ -474,7 +474,7 @@ export function useGroupTransformations({
     groupRotationStateRef.current.initialPositions.clear();
     
     trace('handleGroupRotateEnd', 'Rotation state reset');
-  }, [currentFrame, selectedHorses, width, height, updateHorseInFrame, batchUpdateHorsesInFrame]);
+  }, [currentFrame, selectedHorses, width, height, updateHorseInFrame, batchUpdateHorsesInFrame, resetRotationHandle]);
 
 
   // Handle group scale (spacing)
@@ -750,7 +750,7 @@ export function useGroupTransformations({
     groupScaleStateRef.current.initialPositions.clear();
     
     trace('handleGroupScaleEnd', 'Scale state reset');
-  }, [currentFrame, selectedHorses, width, height, updateHorseInFrame, batchUpdateHorsesInFrame]);
+  }, [currentFrame, selectedHorses, width, height, updateHorseInFrame, batchUpdateHorsesInFrame, resetScaleHandle]);
 
   // Handle radial distribution
   const handleRadialDistribute = React.useCallback(() => {
@@ -779,7 +779,7 @@ export function useGroupTransformations({
     });
 
     // Add padding
-    const targetRadius = maxDist + 20;
+    const targetRadius = maxDist;
 
     // First restore all horses to their initial positions (skip history)
     const initialPositions = new Map<string, Point>();
@@ -794,25 +794,31 @@ export function useGroupTransformations({
     const frameAfterRestore = useDrillStore.getState().getCurrentFrame();
     if (!frameAfterRestore) return;
 
-    // Calculate angle step for even distribution
-    const angleStep = (2 * Math.PI) / selectedHorses.length;
-
-    // Distribute horses evenly around the circle
+    // Distribute horses to edge while preserving their polar angles
     const updates = new Map<string, Partial<Horse>>();
     
-    selectedHorses.forEach((horse, index) => {
-      const angle = index * angleStep;
+    selectedHorses.forEach((horse) => {
+      const initialPos = initialPositions.get(horse.id);
+      if (!initialPos) return;
+
+      // Convert initial position to canvas coordinates
+      const initialCanvas = pointToCanvas(initialPos, width, height);
       
-      // Calculate position on circle edge
-      const newCanvasX = centerCanvas.x + targetRadius * Math.cos(angle);
-      const newCanvasY = centerCanvas.y + targetRadius * Math.sin(angle);
+      // Calculate polar coordinates (angle and distance from center)
+      const dx = initialCanvas.x - centerCanvas.x;
+      const dy = initialCanvas.y - centerCanvas.y;
+      const polarAngle = Math.atan2(dy, dx);
+      
+      // Calculate position on circle edge using preserved polar angle
+      const newCanvasX = centerCanvas.x + targetRadius * Math.cos(polarAngle);
+      const newCanvasY = centerCanvas.y + targetRadius * Math.sin(polarAngle);
       
       // Convert to normalized
       const newPos = canvasToPoint(newCanvasX, newCanvasY, width, height);
       
       // Calculate tangential direction (perpendicular to radius)
       // Tangent direction is angle + π/2 (90 degrees clockwise)
-      const tangentialDirection = angle + Math.PI / 2;
+      const tangentialDirection = polarAngle + Math.PI / 2;
       
       updates.set(horse.id, {
         position: newPos,
@@ -824,8 +830,7 @@ export function useGroupTransformations({
     trace('handleRadialDistribute', 'Applying batch update', {
       frameId: frameAfterRestore.id,
       updateCount: updates.size,
-      targetRadius,
-      angleStep
+      targetRadius
     });
     
     batchUpdateHorsesInFrame(frameAfterRestore.id, updates);
@@ -836,8 +841,9 @@ export function useGroupTransformations({
     trace('handleRadialDistribute', 'Radial distribution complete');
   }, [currentFrame, selectedHorses, width, height, updateHorseInFrame, batchUpdateHorsesInFrame]);
 
-  // Track previous horse IDs to detect actual selection changes
-  const previousHorseIdsRef = React.useRef<string>('');
+  // Track previous horse IDs to detect actual selection changes (separate refs for rotation and scale)
+  const previousRotationHorseIdsRef = React.useRef<string>('');
+  const previousScaleHorseIdsRef = React.useRef<string>('');
   
   // Reset rotation state when selection changes (but not during drag)
   React.useEffect(() => {
@@ -851,15 +857,15 @@ export function useGroupTransformations({
     const currentHorseIds = selectedHorses.map(h => h.id).sort().join(',');
     
     // Only reset if the actual selection changed (not just array reference)
-    if (previousHorseIdsRef.current === currentHorseIds) {
+    if (previousRotationHorseIdsRef.current === currentHorseIds) {
       trace('useEffect:selectedHorses', 'Skipping rotation reset - same horses', {
         horseIds: currentHorseIds
       });
       return;
     }
     
-    const previousHorseIds = previousHorseIdsRef.current;
-    previousHorseIdsRef.current = currentHorseIds;
+    const previousHorseIds = previousRotationHorseIdsRef.current;
+    previousRotationHorseIdsRef.current = currentHorseIds;
     
     trace('useEffect:selectedHorses', 'Resetting rotation state', {
       previousHorseIds,
@@ -884,15 +890,15 @@ export function useGroupTransformations({
     const currentHorseIds = selectedHorses.map(h => h.id).sort().join(',');
     
     // Only reset if the actual selection changed (not just array reference)
-    if (previousHorseIdsRef.current === currentHorseIds) {
+    if (previousScaleHorseIdsRef.current === currentHorseIds) {
       trace('useEffect:selectedHorses', 'Skipping scale reset - same horses', {
         horseIds: currentHorseIds
       });
       return;
     }
     
-    const previousHorseIds = previousHorseIdsRef.current;
-    previousHorseIdsRef.current = currentHorseIds;
+    const previousHorseIds = previousScaleHorseIdsRef.current;
+    previousScaleHorseIdsRef.current = currentHorseIds;
     
     trace('useEffect:selectedHorses', 'Resetting scale state', {
       previousHorseIds,

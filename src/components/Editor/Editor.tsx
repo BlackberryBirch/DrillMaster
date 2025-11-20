@@ -174,17 +174,17 @@ export default function Editor() {
       // Only handle alignment shortcuts when we have horses selected and a current frame
       if (!currentFrame || selectedHorseIds.length < 2) return;
 
-      // Ctrl/Cmd + Shift + H: Align Horizontally
+      // Ctrl/Cmd + Shift + H: Align Horizontally (same X position) - swapped functionality
       if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'h' && !e.altKey) {
         e.preventDefault();
-        alignHorsesHorizontally(currentFrame.id, selectedHorseIds);
+        alignHorsesVertically(currentFrame.id, selectedHorseIds);
         return;
       }
 
-      // Ctrl/Cmd + Shift + V: Align Vertically
+      // Ctrl/Cmd + Shift + V: Align Vertically (same Y position) - swapped functionality
       if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'v' && !e.altKey) {
         e.preventDefault();
-        alignHorsesVertically(currentFrame.id, selectedHorseIds);
+        alignHorsesHorizontally(currentFrame.id, selectedHorseIds);
         return;
       }
 

@@ -8,9 +8,13 @@ export default function EditorToolbar() {
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
   const toggleDirectionArrows = useEditorStore((state) => state.toggleDirectionArrows);
   const resetView = useEditorStore((state) => state.resetView);
+  const selectedHorseIds = useEditorStore((state) => state.selectedHorseIds);
   
   const currentFrame = useDrillStore((state) => state.getCurrentFrame());
   const addHorseToFrame = useDrillStore((state) => state.addHorseToFrame);
+  const alignHorsesHorizontally = useDrillStore((state) => state.alignHorsesHorizontally);
+  const alignHorsesVertically = useDrillStore((state) => state.alignHorsesVertically);
+  const distributeHorsesEvenly = useDrillStore((state) => state.distributeHorsesEvenly);
 
   const handleAddHorse = () => {
     if (!currentFrame) return;
@@ -54,6 +58,55 @@ export default function EditorToolbar() {
       >
         Reset View
       </button>
+      
+      {/* Alignment & Distribution buttons - only show when 2+ horses selected */}
+      {currentFrame && selectedHorseIds.length >= 2 && (
+        <>
+          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+          
+          <button
+            onClick={() => {
+              if (currentFrame) {
+                // Align H button now calls alignHorsesVertically (same X position)
+                alignHorsesVertically(currentFrame.id, selectedHorseIds);
+              }
+            }}
+            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            title="Align horizontally (same X position) - Ctrl/Cmd + Shift + H"
+            disabled={selectedHorseIds.length < 2}
+          >
+            Align H
+          </button>
+          
+          <button
+            onClick={() => {
+              if (currentFrame) {
+                // Align V button now calls alignHorsesHorizontally (same Y position)
+                alignHorsesHorizontally(currentFrame.id, selectedHorseIds);
+              }
+            }}
+            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            title="Align vertically (same Y position) - Ctrl/Cmd + Shift + V"
+            disabled={selectedHorseIds.length < 2}
+          >
+            Align V
+          </button>
+          
+          {selectedHorseIds.length >= 3 && (
+            <button
+              onClick={() => {
+                if (currentFrame) {
+                  distributeHorsesEvenly(currentFrame.id, selectedHorseIds);
+                }
+              }}
+              className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+              title="Distribute evenly along line between two most separated horses - Ctrl/Cmd + Alt + D"
+            >
+              Distribute Evenly
+            </button>
+          )}
+        </>
+      )}
       
       <div className="flex-1" />
       

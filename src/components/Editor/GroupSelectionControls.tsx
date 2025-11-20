@@ -4,7 +4,7 @@ import { BoundingCircle } from '../../hooks/useGroupTransformations';
 
 // Tracing utility (matches the one in useGroupTransformations)
 const ENABLE_TRACING = false;
-const trace = (category: string, message: string, data?: any) => {
+const trace = (category: string, message: string, data?: unknown) => {
   if (ENABLE_TRACING) {
     const timestamp = new Date().toISOString();
     const logData = data ? { ...data, timestamp } : { timestamp };
@@ -47,6 +47,7 @@ export default function GroupSelectionControls({
   const scaleHandlePositionRef = React.useRef<{ x: number; y: number } | null>(null);
 
   // Handle rotation drag start
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleRotationDragStart = (e: any) => {
     trace('handleRotationDragStart', 'Called');
     setDragging(true);
@@ -58,6 +59,7 @@ export default function GroupSelectionControls({
   };
 
   // Handle rotation drag move
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleRotationDragMove = (e: any) => {
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
@@ -116,6 +118,7 @@ export default function GroupSelectionControls({
   };
 
   // Handle scale drag start
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleScaleDragStart = (e: any) => {
     trace('handleScaleDragStart', 'Called');
     setDragging(true);
@@ -127,6 +130,7 @@ export default function GroupSelectionControls({
   };
 
   // Handle scale drag move
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleScaleDragMove = (e: any) => {
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
@@ -192,7 +196,8 @@ export default function GroupSelectionControls({
   const strokeColor = theme === 'dark' ? '#60A5FA' : '#3B82F6';
   const handleColor = theme === 'dark' ? '#93C5FD' : '#60A5FA';
   const handleRadius = 8;
-  const arrowSize = 12;
+  const arrowSize = 9;
+  const arrowOffset = 6;
 
   // Top rotation handle position
   const topHandleX = center.x;
@@ -238,14 +243,14 @@ export default function GroupSelectionControls({
         />
         {/* Left arrow */}
         <Line
-          points={[-arrowSize, 0, -arrowSize / 2, -arrowSize / 2]}
+          points={[-arrowSize - arrowOffset, 0, -arrowSize / 2 - arrowOffset, -arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
         />
         <Line
-          points={[-arrowSize, 0, -arrowSize / 2, arrowSize / 2]}
+          points={[-arrowSize - arrowOffset, 0, -arrowSize / 2 - arrowOffset, arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
@@ -253,14 +258,14 @@ export default function GroupSelectionControls({
         />
         {/* Right arrow */}
         <Line
-          points={[arrowSize, 0, arrowSize / 2, -arrowSize / 2]}
+          points={[arrowSize + arrowOffset, 0, arrowSize / 2 + arrowOffset, -arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
         />
         <Line
-          points={[arrowSize, 0, arrowSize / 2, arrowSize / 2]}
+          points={[arrowSize + arrowOffset, 0, arrowSize / 2 + arrowOffset, arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
@@ -287,14 +292,14 @@ export default function GroupSelectionControls({
         />
         {/* Left arrow */}
         <Line
-          points={[-arrowSize, 0, -arrowSize / 2, -arrowSize / 2]}
+          points={[-arrowSize - arrowOffset, 0, -arrowSize / 2 - arrowOffset, -arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
         />
         <Line
-          points={[-arrowSize, 0, -arrowSize / 2, arrowSize / 2]}
+          points={[-arrowSize - arrowOffset, 0, -arrowSize / 2 - arrowOffset, arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
@@ -302,14 +307,14 @@ export default function GroupSelectionControls({
         />
         {/* Right arrow */}
         <Line
-          points={[arrowSize, 0, arrowSize / 2, -arrowSize / 2]}
+          points={[arrowSize + arrowOffset, 0, arrowSize / 2 + arrowOffset, -arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
         />
         <Line
-          points={[arrowSize, 0, arrowSize / 2, arrowSize / 2]}
+          points={[arrowSize + arrowOffset, 0, arrowSize / 2 + arrowOffset, arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
@@ -334,14 +339,14 @@ export default function GroupSelectionControls({
         />
         {/* Up arrow */}
         <Line
-          points={[0, -arrowSize, -arrowSize / 2, -arrowSize / 2]}
+          points={[0, -arrowSize - arrowOffset, -arrowSize / 2, -arrowSize / 2 - arrowOffset]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
         />
         <Line
-          points={[0, -arrowSize, arrowSize / 2, -arrowSize / 2]}
+          points={[0, -arrowSize - arrowOffset, arrowSize / 2, -arrowSize / 2 - arrowOffset]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
@@ -349,14 +354,14 @@ export default function GroupSelectionControls({
         />
         {/* Down arrow */}
         <Line
-          points={[0, arrowSize, -arrowSize / 2, arrowSize / 2]}
+          points={[0, arrowSize + arrowOffset, -arrowSize / 2, arrowSize / 2 + arrowOffset]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
         />
         <Line
-          points={[0, arrowSize, arrowSize / 2, arrowSize / 2]}
+          points={[0, arrowSize + arrowOffset, arrowSize / 2, arrowSize / 2 + arrowOffset ]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
@@ -364,14 +369,14 @@ export default function GroupSelectionControls({
         />
         {/* Left arrow */}
         <Line
-          points={[-arrowSize, 0, -arrowSize / 2, -arrowSize / 2]}
+          points={[-arrowSize - arrowOffset, 0, -arrowSize / 2 - arrowOffset, -arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
         />
         <Line
-          points={[-arrowSize, 0, -arrowSize / 2, arrowSize / 2]}
+          points={[-arrowSize - arrowOffset, 0, -arrowSize / 2 - arrowOffset, arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
@@ -379,14 +384,14 @@ export default function GroupSelectionControls({
         />
         {/* Right arrow */}
         <Line
-          points={[arrowSize, 0, arrowSize / 2, -arrowSize / 2]}
+          points={[arrowSize + arrowOffset, 0, arrowSize / 2 + arrowOffset, -arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
         />
         <Line
-          points={[arrowSize, 0, arrowSize / 2, arrowSize / 2]}
+          points={[arrowSize + arrowOffset, 0, arrowSize / 2 + arrowOffset, arrowSize / 2]}
           stroke={theme === 'dark' ? '#1E3A8A' : '#1E40AF'}
           strokeWidth={2}
           lineCap="round"
