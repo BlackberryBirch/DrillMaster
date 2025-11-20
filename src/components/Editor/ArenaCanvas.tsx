@@ -8,6 +8,8 @@ import { getGridLines, canvasToPoint, pointToCanvas } from '../../utils/arena';
 import { getInterpolatedHorses } from '../../utils/animation';
 import { Horse, Gait } from '../../types';
 import HorseRenderer from './HorseRenderer';
+import GroupSelectionControls from './GroupSelectionControls';
+import { useGroupTransformations } from '../../hooks/useGroupTransformations';
 
 interface ArenaCanvasProps {
   width: number;
@@ -309,16 +311,12 @@ export default function ArenaCanvas({
     const arenaX = (pointerPos.x - (offsetX + pan.x)) / zoom;
     const arenaY = (pointerPos.y - (offsetY + pan.y)) / zoom;
     
-    // Clamp to arena bounds
-    const startX = Math.max(0, Math.min(width, arenaX));
-    const startY = Math.max(0, Math.min(height, arenaY));
-    
     setIsSelecting(true);
     setSelectionRect({
-      startX,
-      startY,
-      endX: startX,
-      endY: startY,
+      startX: arenaX,
+      startY: arenaY,
+      endX: arenaX,
+      endY: arenaY,
     });
   };
 
@@ -340,15 +338,11 @@ export default function ArenaCanvas({
       // Convert to arena coordinates
       const arenaX = (pointerX - (offsetX + pan.x)) / zoom;
       const arenaY = (pointerY - (offsetY + pan.y)) / zoom;
-      
-      // Clamp to arena bounds
-      const endX = Math.max(0, Math.min(width, arenaX));
-      const endY = Math.max(0, Math.min(height, arenaY));
-      
+
       setSelectionRect({
         ...selectionRect,
-        endX,
-        endY,
+        endX: arenaX,
+        endY: arenaY,
       });
     };
 
@@ -410,6 +404,30 @@ export default function ArenaCanvas({
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isSelecting, selectionRect, offsetX, offsetY, pan, zoom, width, height, currentFrame, horsesToDisplay, setSelectedHorses, clearSelection]);
+
+  // Get selected horses
+  const selectedHorses = React.useMemo(() => {
+    if (!currentFrame) return [];
+    return currentFrame.horses.filter((horse) => selectedHorseIds.includes(horse.id));
+  }, [currentFrame, selectedHorseIds]);
+
+  // Use group transformations hook
+  const {
+    handleGroupRotateFromPointer,
+    handleGroupRotateEnd,
+    handleGroupScaleFromPointer,
+    handleGroupScaleEnd,
+    handleRadialDistribute,
+    getBoundingCircle,
+    setDragging,
+  } = useGroupTransformations({
+    currentFrame,
+    selectedHorses,
+    width,
+    height,
+    updateHorseInFrame,
+    batchUpdateHorsesInFrame,
+  });
 
   if (!currentFrame || !drill) {
     return null;
@@ -528,6 +546,22 @@ export default function ArenaCanvas({
           />
         );
       })}
+
+              {/* Group Selection Controls - show when multiple horses are selected */}
+              {selectedHorses.length > 1 && animationState !== 'playing' && (
+                <GroupSelectionControls
+                  onRotate={handleGroupRotateFromPointer}
+                  onRotateStart={() => {}} // No-op - initialization happens on first move
+                  onRotateEnd={handleGroupRotateEnd}
+                  onScale={handleGroupScaleFromPointer}
+                  onScaleStart={() => {}} // No-op - initialization happens on first move
+                  onScaleEnd={handleGroupScaleEnd}
+                  onRadialDistribute={handleRadialDistribute}
+                  getBoundingCircle={getBoundingCircle}
+                  setDragging={setDragging}
+                  theme={theme}
+                />
+              )}
     </Group>
   );
 }
