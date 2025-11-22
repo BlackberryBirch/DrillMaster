@@ -16,6 +16,7 @@ import {
   calculateArrowEndPosition,
   stopEventPropagation,
 } from '../../utils/horseRendering';
+import { useThemeStore } from '../../stores/themeStore';
 
 interface HorseRendererProps {
   horse: Horse;
@@ -53,6 +54,8 @@ export default function HorseRenderer({
   canvasWidth,
   canvasHeight,
 }: HorseRendererProps) {
+  const theme = useThemeStore((state) => state.theme);
+  
   // Track if an actual drag occurred (mouse moved after mousedown)
   const hasDraggedRef = React.useRef<boolean>(false);
   const dragStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -304,9 +307,9 @@ export default function HorseRenderer({
         <>
           <Arrow
             points={[arrowStartX, arrowStartY, arrowEndX, arrowEndY]}
-            stroke={HORSE_RENDERING.ARROW_COLOR}
+            stroke={theme === 'dark' ? '#FFFFFF' : HORSE_RENDERING.ARROW_COLOR}
             strokeWidth={HORSE_RENDERING.ARROW_STROKE_WIDTH}
-            fill={HORSE_RENDERING.ARROW_COLOR}
+            fill={theme === 'dark' ? '#FFFFFF' : HORSE_RENDERING.ARROW_COLOR}
             pointerLength={HORSE_RENDERING.ARROW_POINTER_LENGTH}
             pointerWidth={HORSE_RENDERING.ARROW_POINTER_WIDTH}
             listening={false}

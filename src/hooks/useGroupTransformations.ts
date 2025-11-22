@@ -816,9 +816,39 @@ export function useGroupTransformations({
       // Convert to normalized
       const newPos = canvasToPoint(newCanvasX, newCanvasY, width, height);
       
-      // Calculate tangential direction (perpendicular to radius)
-      // Tangent direction is angle + π/2 (90 degrees clockwise)
-      const tangentialDirection = polarAngle + Math.PI / 2;
+      // Calculate both tangential directions (perpendicular to radius)
+      const clockwiseDirection = polarAngle + Math.PI / 2;  // Clockwise
+      const counterclockwiseDirection = polarAngle - Math.PI / 2;  // Counterclockwise
+      
+      // Get the horse's current direction
+      const currentDirection = horse.direction || 0;
+      
+      // Normalize angles to [0, 2π] for comparison
+      const normalizeAngle = (angle: number): number => {
+        let normalized = angle;
+        while (normalized < 0) normalized += 2 * Math.PI;
+        while (normalized >= 2 * Math.PI) normalized -= 2 * Math.PI;
+        return normalized;
+      };
+      
+      const currentNorm = normalizeAngle(currentDirection);
+      const clockwiseNorm = normalizeAngle(clockwiseDirection);
+      const counterclockwiseNorm = normalizeAngle(counterclockwiseDirection);
+      
+      // Calculate angular distances (handling wraparound)
+      const distToClockwise = Math.min(
+        Math.abs(currentNorm - clockwiseNorm),
+        2 * Math.PI - Math.abs(currentNorm - clockwiseNorm)
+      );
+      const distToCounterclockwise = Math.min(
+        Math.abs(currentNorm - counterclockwiseNorm),
+        2 * Math.PI - Math.abs(currentNorm - counterclockwiseNorm)
+      );
+      
+      // Choose the direction that's closer to the current orientation
+      const tangentialDirection = distToClockwise < distToCounterclockwise
+        ? clockwiseDirection
+        : counterclockwiseDirection;
       
       updates.set(horse.id, {
         position: newPos,

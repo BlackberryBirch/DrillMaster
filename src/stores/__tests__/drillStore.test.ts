@@ -304,6 +304,555 @@ describe('drillStore', () => {
       expect(h2?.position.x).toBeCloseTo(0.5, 5);
       expect(h2?.position.y).toBeCloseTo(0.5, 5);
     });
+
+    describe('distributeHorsesEvenlyAroundCircle', () => {
+      // Helper function to calculate distance from center
+      const distanceFromCenter = (pos: { x: number; y: number }, center: { x: number; y: number }) => {
+        const dx = pos.x - center.x;
+        const dy = pos.y - center.y;
+        return Math.sqrt(dx * dx + dy * dy);
+      };
+
+      // Helper function to calculate angle from center
+      const angleFromCenter = (pos: { x: number; y: number }, center: { x: number; y: number }) => {
+        const dx = pos.x - center.x;
+        const dy = pos.y - center.y;
+        return Math.atan2(dy, dx);
+      };
+
+      // Helper function to generate random position within bounds
+      const randomPosition = () => ({
+        x: 0.1 + Math.random() * 0.8, // Between 0.1 and 0.9
+        y: 0.1 + Math.random() * 0.8,
+      });
+
+      // Helper function to generate random orientation
+      const randomOrientation = () => Math.random() * 2 * Math.PI;
+
+      it('should distribute 2 horses evenly around circle (180 degrees apart)', () => {
+        const frame = useDrillStore.getState().getCurrentFrame();
+        if (!frame) return;
+
+        // Test with multiple random configurations
+        for (let testRun = 0; testRun < 5; testRun++) {
+          useDrillStore.setState({
+            drill: frame ? {
+              ...useDrillStore.getState().drill!,
+              frames: [{
+                ...frame,
+                horses: [],
+              }],
+            } : null,
+          });
+
+          const currentFrame = useDrillStore.getState().getCurrentFrame();
+          if (!currentFrame) return;
+
+          const horse1 = createHorse(generateId(), 1, randomPosition(), randomOrientation());
+          const horse2 = createHorse(generateId(), 2, randomPosition(), randomOrientation());
+
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse1);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse2);
+
+          const updatedFrame = useDrillStore.getState().getCurrentFrame();
+          if (!updatedFrame) return;
+
+          const horseIds = updatedFrame.horses.map((h) => h.id);
+          useDrillStore.getState().distributeHorsesEvenlyAroundCircle(updatedFrame.id, horseIds);
+
+          const distributedFrame = useDrillStore.getState().getCurrentFrame();
+          const distributedHorses = distributedFrame?.horses || [];
+
+          // Calculate center
+          const center = {
+            x: (horse1.position.x + horse2.position.x) / 2,
+            y: (horse1.position.y + horse2.position.y) / 2,
+          };
+
+          // Calculate radius (should be half the distance between original positions)
+          const originalDist = Math.sqrt(
+            Math.pow(horse2.position.x - horse1.position.x, 2) +
+            Math.pow(horse2.position.y - horse1.position.y, 2)
+          );
+          const expectedRadius = originalDist / 2;
+
+          distributedHorses.forEach((horse) => {
+            const dist = distanceFromCenter(horse.position, center);
+            expect(dist).toBeCloseTo(expectedRadius, 3);
+          });
+
+          // Check that horses are approximately 180 degrees apart
+          const angles = distributedHorses.map((h) => angleFromCenter(h.position, center));
+          const angleDiff = Math.abs(angles[0] - angles[1]);
+          const normalizedDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
+          expect(normalizedDiff).toBeCloseTo(Math.PI, 2);
+        }
+      });
+
+      it('should distribute 3 horses evenly around circle (120 degrees apart)', () => {
+        const frame = useDrillStore.getState().getCurrentFrame();
+        if (!frame) return;
+
+        // Test with multiple random configurations
+        for (let testRun = 0; testRun < 5; testRun++) {
+          useDrillStore.setState({
+            drill: frame ? {
+              ...useDrillStore.getState().drill!,
+              frames: [{
+                ...frame,
+                horses: [],
+              }],
+            } : null,
+          });
+
+          const currentFrame = useDrillStore.getState().getCurrentFrame();
+          if (!currentFrame) return;
+
+          const horse1 = createHorse(generateId(), 1, randomPosition(), randomOrientation());
+          const horse2 = createHorse(generateId(), 2, randomPosition(), randomOrientation());
+          const horse3 = createHorse(generateId(), 3, randomPosition(), randomOrientation());
+
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse1);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse2);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse3);
+
+          const updatedFrame = useDrillStore.getState().getCurrentFrame();
+          if (!updatedFrame) return;
+
+          const horseIds = updatedFrame.horses.map((h) => h.id);
+          useDrillStore.getState().distributeHorsesEvenlyAroundCircle(updatedFrame.id, horseIds);
+
+          const distributedFrame = useDrillStore.getState().getCurrentFrame();
+          const distributedHorses = distributedFrame?.horses || [];
+
+          // Calculate center
+          const center = {
+            x: (horse1.position.x + horse2.position.x + horse3.position.x) / 3,
+            y: (horse1.position.y + horse2.position.y + horse3.position.y) / 3,
+          };
+
+          // All horses should be at the same distance from center
+          const distances = distributedHorses.map((h) => distanceFromCenter(h.position, center));
+          const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+          distances.forEach((dist) => {
+            expect(dist).toBeCloseTo(avgDistance, 3);
+          });
+
+          // Check angles are evenly spaced (120 degrees = 2π/3)
+          const angles = distributedHorses.map((h) => angleFromCenter(h.position, center)).sort((a, b) => a - b);
+          const angleStep = (2 * Math.PI) / 3;
+          
+          // Check that angles are approximately evenly spaced
+          for (let i = 0; i < angles.length - 1; i++) {
+            let diff = angles[i + 1] - angles[i];
+            if (diff < 0) diff += 2 * Math.PI;
+            expect(diff).toBeCloseTo(angleStep, 1);
+          }
+        }
+      });
+
+      it('should distribute 4 horses evenly around circle (90 degrees apart)', () => {
+        const frame = useDrillStore.getState().getCurrentFrame();
+        if (!frame) return;
+
+        // Test with multiple random configurations
+        for (let testRun = 0; testRun < 5; testRun++) {
+          useDrillStore.setState({
+            drill: frame ? {
+              ...useDrillStore.getState().drill!,
+              frames: [{
+                ...frame,
+                horses: [],
+              }],
+            } : null,
+          });
+
+          const currentFrame = useDrillStore.getState().getCurrentFrame();
+          if (!currentFrame) return;
+
+          const horse1 = createHorse(generateId(), 1, randomPosition(), randomOrientation());
+          const horse2 = createHorse(generateId(), 2, randomPosition(), randomOrientation());
+          const horse3 = createHorse(generateId(), 3, randomPosition(), randomOrientation());
+          const horse4 = createHorse(generateId(), 4, randomPosition(), randomOrientation());
+
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse1);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse2);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse3);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse4);
+
+          const updatedFrame = useDrillStore.getState().getCurrentFrame();
+          if (!updatedFrame) return;
+
+          const horseIds = updatedFrame.horses.map((h) => h.id);
+          useDrillStore.getState().distributeHorsesEvenlyAroundCircle(updatedFrame.id, horseIds);
+
+          const distributedFrame = useDrillStore.getState().getCurrentFrame();
+          const distributedHorses = distributedFrame?.horses || [];
+
+          // Calculate center
+          const center = {
+            x: (horse1.position.x + horse2.position.x + horse3.position.x + horse4.position.x) / 4,
+            y: (horse1.position.y + horse2.position.y + horse3.position.y + horse4.position.y) / 4,
+          };
+
+          // All horses should be at the same distance from center
+          const distances = distributedHorses.map((h) => distanceFromCenter(h.position, center));
+          const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+          distances.forEach((dist) => {
+            expect(dist).toBeCloseTo(avgDistance, 3);
+          });
+
+          // Check angles are evenly spaced (90 degrees = π/2)
+          const angles = distributedHorses.map((h) => angleFromCenter(h.position, center)).sort((a, b) => a - b);
+          const angleStep = Math.PI / 2;
+          
+          // Check that angles are approximately evenly spaced
+          for (let i = 0; i < angles.length - 1; i++) {
+            let diff = angles[i + 1] - angles[i];
+            if (diff < 0) diff += 2 * Math.PI;
+            expect(diff).toBeCloseTo(angleStep, 1);
+          }
+          // Check wrap-around
+          let lastDiff = angles[0] - angles[angles.length - 1] + 2 * Math.PI;
+          expect(lastDiff).toBeCloseTo(angleStep, 1);
+        }
+      });
+
+      it('should handle horses already on a circle', () => {
+        const frame = useDrillStore.getState().getCurrentFrame();
+        if (!frame) return;
+
+        // Test with multiple random configurations
+        for (let testRun = 0; testRun < 5; testRun++) {
+          useDrillStore.setState({
+            drill: frame ? {
+              ...useDrillStore.getState().drill!,
+              frames: [{
+                ...frame,
+                horses: [],
+              }],
+            } : null,
+          });
+
+          const currentFrame = useDrillStore.getState().getCurrentFrame();
+          if (!currentFrame) return;
+
+          // Random center and radius
+          const center = { 
+            x: 0.2 + Math.random() * 0.6, 
+            y: 0.2 + Math.random() * 0.6 
+          };
+          const radius = 0.05 + Math.random() * 0.15;
+
+          // Create 4 horses already on a circle but not evenly spaced
+          const angles = [
+            Math.random() * 2 * Math.PI,
+            Math.random() * 2 * Math.PI,
+            Math.random() * 2 * Math.PI,
+            Math.random() * 2 * Math.PI,
+          ];
+          
+          const horse1 = createHorse(generateId(), 1, 
+            { x: center.x + radius * Math.cos(angles[0]), y: center.y + radius * Math.sin(angles[0]) }, randomOrientation());
+          const horse2 = createHorse(generateId(), 2, 
+            { x: center.x + radius * Math.cos(angles[1]), y: center.y + radius * Math.sin(angles[1]) }, randomOrientation());
+          const horse3 = createHorse(generateId(), 3, 
+            { x: center.x + radius * Math.cos(angles[2]), y: center.y + radius * Math.sin(angles[2]) }, randomOrientation());
+          const horse4 = createHorse(generateId(), 4, 
+            { x: center.x + radius * Math.cos(angles[3]), y: center.y + radius * Math.sin(angles[3]) }, randomOrientation());
+
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse1);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse2);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse3);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse4);
+
+          const updatedFrame = useDrillStore.getState().getCurrentFrame();
+          if (!updatedFrame) return;
+
+          const horseIds = updatedFrame.horses.map((h) => h.id);
+          useDrillStore.getState().distributeHorsesEvenlyAroundCircle(updatedFrame.id, horseIds);
+
+          const distributedFrame = useDrillStore.getState().getCurrentFrame();
+          const distributedHorses = distributedFrame?.horses || [];
+
+          // Calculate actual center
+          const actualCenter = {
+            x: distributedHorses.reduce((sum, h) => sum + h.position.x, 0) / distributedHorses.length,
+            y: distributedHorses.reduce((sum, h) => sum + h.position.y, 0) / distributedHorses.length,
+          };
+
+          // All horses should be at approximately the same distance from center
+          const distances = distributedHorses.map((h) => distanceFromCenter(h.position, actualCenter));
+          const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+          distances.forEach((dist) => {
+            expect(dist).toBeCloseTo(avgDistance, 3);
+          });
+
+          // Angles should be evenly spaced
+          const finalAngles = distributedHorses.map((h) => angleFromCenter(h.position, actualCenter)).sort((a, b) => a - b);
+          const angleStep = Math.PI / 2;
+          for (let i = 0; i < finalAngles.length - 1; i++) {
+            let diff = finalAngles[i + 1] - finalAngles[i];
+            if (diff < 0) diff += 2 * Math.PI;
+            expect(diff).toBeCloseTo(angleStep, 1);
+          }
+        }
+      });
+
+      it('should handle horses in a line', () => {
+        const frame = useDrillStore.getState().getCurrentFrame();
+        if (!frame) return;
+
+        // Test with multiple random line configurations
+        for (let testRun = 0; testRun < 5; testRun++) {
+          useDrillStore.setState({
+            drill: frame ? {
+              ...useDrillStore.getState().drill!,
+              frames: [{
+                ...frame,
+                horses: [],
+              }],
+            } : null,
+          });
+
+          const currentFrame = useDrillStore.getState().getCurrentFrame();
+          if (!currentFrame) return;
+
+          // Create 3 horses in a line (random orientation and position)
+          const lineStart = randomPosition();
+          const lineAngle = randomOrientation();
+          const lineLength = 0.1 + Math.random() * 0.3;
+          
+          const horse1 = createHorse(generateId(), 1, 
+            { x: lineStart.x, y: lineStart.y }, randomOrientation());
+          const horse2 = createHorse(generateId(), 2, 
+            { x: lineStart.x + lineLength * Math.cos(lineAngle) / 2, y: lineStart.y + lineLength * Math.sin(lineAngle) / 2 }, randomOrientation());
+          const horse3 = createHorse(generateId(), 3, 
+            { x: lineStart.x + lineLength * Math.cos(lineAngle), y: lineStart.y + lineLength * Math.sin(lineAngle) }, randomOrientation());
+
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse1);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse2);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse3);
+
+          const updatedFrame = useDrillStore.getState().getCurrentFrame();
+          if (!updatedFrame) return;
+
+          const horseIds = updatedFrame.horses.map((h) => h.id);
+          useDrillStore.getState().distributeHorsesEvenlyAroundCircle(updatedFrame.id, horseIds);
+
+          const distributedFrame = useDrillStore.getState().getCurrentFrame();
+          const distributedHorses = distributedFrame?.horses || [];
+
+          // Calculate center
+          const center = {
+            x: (horse1.position.x + horse2.position.x + horse3.position.x) / 3,
+            y: (horse1.position.y + horse2.position.y + horse3.position.y) / 3,
+          };
+
+          // All horses should be at the same distance from center
+          const distances = distributedHorses.map((h) => distanceFromCenter(h.position, center));
+          const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+          distances.forEach((dist) => {
+            expect(dist).toBeCloseTo(avgDistance, 3);
+          });
+
+          // Angles should be evenly spaced (120 degrees)
+          const angles = distributedHorses.map((h) => angleFromCenter(h.position, center)).sort((a, b) => a - b);
+          const angleStep = (2 * Math.PI) / 3;
+          for (let i = 0; i < angles.length - 1; i++) {
+            let diff = angles[i + 1] - angles[i];
+            if (diff < 0) diff += 2 * Math.PI;
+            expect(diff).toBeCloseTo(angleStep, 1);
+          }
+        }
+      });
+
+      it('should rotate horse directions when distributing', () => {
+        const frame = useDrillStore.getState().getCurrentFrame();
+        if (!frame) return;
+
+        // Test with multiple random configurations
+        for (let testRun = 0; testRun < 5; testRun++) {
+          useDrillStore.setState({
+            drill: frame ? {
+              ...useDrillStore.getState().drill!,
+              frames: [{
+                ...frame,
+                horses: [],
+              }],
+            } : null,
+          });
+
+          const currentFrame = useDrillStore.getState().getCurrentFrame();
+          if (!currentFrame) return;
+
+          // Create 2 horses with random positions and directions
+          const horse1 = createHorse(generateId(), 1, randomPosition(), randomOrientation());
+          const horse2 = createHorse(generateId(), 2, randomPosition(), randomOrientation());
+
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse1);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse2);
+
+          const updatedFrame = useDrillStore.getState().getCurrentFrame();
+          if (!updatedFrame) return;
+
+          const horseIds = updatedFrame.horses.map((h) => h.id);
+          useDrillStore.getState().distributeHorsesEvenlyAroundCircle(updatedFrame.id, horseIds);
+
+          const distributedFrame = useDrillStore.getState().getCurrentFrame();
+          const distributedHorses = distributedFrame?.horses || [];
+
+          // Directions should be set (not undefined)
+          distributedHorses.forEach((horse) => {
+            expect(horse.direction).toBeDefined();
+            expect(typeof horse.direction).toBe('number');
+          });
+        }
+      });
+
+      it('should actually redistribute horses (not leave them in same positions)', () => {
+        const frame = useDrillStore.getState().getCurrentFrame();
+        if (!frame) return;
+
+        // Test with specific positions that were reported as not working
+        // Horse 1: (0.46, 0.41) direction 260° = 4.537 radians
+        // Horse 2: (0.59, 0.30) direction 380° = 6.633 radians  
+        // Horse 3: (0.61, 0.47) direction -40° = -0.698 radians
+        const horse1 = createHorse(generateId(), 1, { x: 0.46, y: 0.41 }, 4.537);
+        const horse2 = createHorse(generateId(), 2, { x: 0.59, y: 0.30 }, 6.633);
+        const horse3 = createHorse(generateId(), 3, { x: 0.61, y: 0.47 }, -0.698);
+
+        useDrillStore.getState().addHorseToFrame(frame.id, horse1);
+        useDrillStore.getState().addHorseToFrame(frame.id, horse2);
+        useDrillStore.getState().addHorseToFrame(frame.id, horse3);
+
+        const updatedFrame = useDrillStore.getState().getCurrentFrame();
+        if (!updatedFrame) return;
+
+        // Save original positions
+        const originalPositions = new Map(
+          updatedFrame.horses.map((h) => [h.id, { x: h.position.x, y: h.position.y }])
+        );
+
+        const horseIds = updatedFrame.horses.map((h) => h.id);
+        useDrillStore.getState().distributeHorsesEvenlyAroundCircle(updatedFrame.id, horseIds);
+
+        const distributedFrame = useDrillStore.getState().getCurrentFrame();
+        const distributedHorses = distributedFrame?.horses || [];
+
+        // Verify horses are actually moved (not in exact same positions)
+        let allSame = true;
+        distributedHorses.forEach((horse) => {
+          const original = originalPositions.get(horse.id);
+          if (original) {
+            const dist = Math.sqrt(
+              Math.pow(horse.position.x - original.x, 2) +
+              Math.pow(horse.position.y - original.y, 2)
+            );
+            if (dist > 0.001) { // Allow small floating point differences
+              allSame = false;
+            }
+          }
+        });
+        expect(allSame).toBe(false); // Horses should have moved
+
+        // Verify they're evenly distributed
+        const center = {
+          x: distributedHorses.reduce((sum, h) => sum + h.position.x, 0) / distributedHorses.length,
+          y: distributedHorses.reduce((sum, h) => sum + h.position.y, 0) / distributedHorses.length,
+        };
+
+        // All horses should be at the same distance from center
+        const distances = distributedHorses.map((h) => distanceFromCenter(h.position, center));
+        const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+        distances.forEach((dist) => {
+          expect(dist).toBeCloseTo(avgDistance, 3);
+        });
+
+        // Angles should be evenly spaced (120 degrees)
+        const angles = distributedHorses.map((h) => angleFromCenter(h.position, center)).sort((a, b) => a - b);
+        const angleStep = (2 * Math.PI) / 3;
+        for (let i = 0; i < angles.length - 1; i++) {
+          let diff = angles[i + 1] - angles[i];
+          if (diff < 0) diff += 2 * Math.PI;
+          expect(diff).toBeCloseTo(angleStep, 1);
+        }
+      });
+
+      it('should minimize distance to original positions', () => {
+        const frame = useDrillStore.getState().getCurrentFrame();
+        if (!frame) return;
+
+        // Test with multiple random configurations
+        for (let testRun = 0; testRun < 5; testRun++) {
+          useDrillStore.setState({
+            drill: frame ? {
+              ...useDrillStore.getState().drill!,
+              frames: [{
+                ...frame,
+                horses: [],
+              }],
+            } : null,
+          });
+
+          const currentFrame = useDrillStore.getState().getCurrentFrame();
+          if (!currentFrame) return;
+
+          // Create 4 horses in a random cluster
+          const clusterCenter = randomPosition();
+          const clusterRadius = 0.05 + Math.random() * 0.1;
+          
+          const horse1 = createHorse(generateId(), 1, 
+            { x: clusterCenter.x + (Math.random() - 0.5) * clusterRadius, 
+              y: clusterCenter.y + (Math.random() - 0.5) * clusterRadius }, randomOrientation());
+          const horse2 = createHorse(generateId(), 2, 
+            { x: clusterCenter.x + (Math.random() - 0.5) * clusterRadius, 
+              y: clusterCenter.y + (Math.random() - 0.5) * clusterRadius }, randomOrientation());
+          const horse3 = createHorse(generateId(), 3, 
+            { x: clusterCenter.x + (Math.random() - 0.5) * clusterRadius, 
+              y: clusterCenter.y + (Math.random() - 0.5) * clusterRadius }, randomOrientation());
+          const horse4 = createHorse(generateId(), 4, 
+            { x: clusterCenter.x + (Math.random() - 0.5) * clusterRadius, 
+              y: clusterCenter.y + (Math.random() - 0.5) * clusterRadius }, randomOrientation());
+
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse1);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse2);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse3);
+          useDrillStore.getState().addHorseToFrame(currentFrame.id, horse4);
+
+          const updatedFrame = useDrillStore.getState().getCurrentFrame();
+          if (!updatedFrame) return;
+
+          // Save original positions
+          const originalPositions = new Map(
+            updatedFrame.horses.map((h) => [h.id, { x: h.position.x, y: h.position.y }])
+          );
+
+          const horseIds = updatedFrame.horses.map((h) => h.id);
+          useDrillStore.getState().distributeHorsesEvenlyAroundCircle(updatedFrame.id, horseIds);
+
+          const distributedFrame = useDrillStore.getState().getCurrentFrame();
+          const distributedHorses = distributedFrame?.horses || [];
+
+          // Calculate total distance moved
+          let totalDistance = 0;
+          distributedHorses.forEach((horse) => {
+            const original = originalPositions.get(horse.id);
+            if (original) {
+              const dist = Math.sqrt(
+                Math.pow(horse.position.x - original.x, 2) +
+                Math.pow(horse.position.y - original.y, 2)
+              );
+              totalDistance += dist;
+            }
+          });
+
+          // Total distance should be reasonable (horses should be close to original positions)
+          // Since we're optimizing, the distance should be minimized
+          expect(totalDistance).toBeLessThan(1.0); // Should be much less than 1.0 in normalized coordinates
+        }
+      });
+    });
   });
 
 

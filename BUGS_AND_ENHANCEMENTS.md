@@ -4,6 +4,8 @@
 
 - ✅ **Fixed**: Click-select bug - Horse would move when mouse moved after clicking and releasing. Now horse only moves when actually dragging (mouse down + drag).
 - Audio fails to load when opening from cloud storage.
+- Undo doesn't always work
+- Playback of frames with shorter timespans is incorrect
 
 ## Enhancements
 
@@ -14,4 +16,6 @@
 - Sharable
 - Export frames to printable
 - Adjustable number size
-
+- ✅ **Fixed**: Turn arrows white when in dark mode
+- ✅ **Fixed**: Improve snap to circle to snap direction close to previous orientation of horse
+- Add button to evenly distribute horses about a circle

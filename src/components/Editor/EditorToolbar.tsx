@@ -15,6 +15,7 @@ export default function EditorToolbar() {
   const alignHorsesHorizontally = useDrillStore((state) => state.alignHorsesHorizontally);
   const alignHorsesVertically = useDrillStore((state) => state.alignHorsesVertically);
   const distributeHorsesEvenly = useDrillStore((state) => state.distributeHorsesEvenly);
+  const distributeHorsesEvenlyAroundCircle = useDrillStore((state) => state.distributeHorsesEvenlyAroundCircle);
 
   const handleAddHorse = () => {
     if (!currentFrame) return;
@@ -103,6 +104,20 @@ export default function EditorToolbar() {
               title="Distribute evenly along line between two most separated horses - Ctrl/Cmd + Alt + D"
             >
               Distribute Evenly
+            </button>
+          )}
+          
+          {selectedHorseIds.length >= 2 && (
+            <button
+              onClick={() => {
+                if (currentFrame) {
+                  distributeHorsesEvenlyAroundCircle(currentFrame.id, selectedHorseIds);
+                }
+              }}
+              className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+              title="Distribute evenly around circle while keeping horses close to original positions"
+            >
+              Distribute Around Circle
             </button>
           )}
         </>

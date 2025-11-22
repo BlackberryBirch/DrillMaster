@@ -224,6 +224,17 @@ export default function GroupSelectionControls({
         listening={false}
       />
 
+      {/* Center point indicator - filled circle */}
+      <Circle
+        x={center.x}
+        y={center.y}
+        radius={4}
+        fill={handleColor}
+        stroke={strokeColor}
+        strokeWidth={1}
+        listening={false}
+      />
+
       {/* Top rotation handle - left/right arrow */}
       <Group
         x={topHandleX}
