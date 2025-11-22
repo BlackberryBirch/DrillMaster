@@ -4,6 +4,7 @@ import { DrillVersionRecord } from '../../types/database';
 import { Drill } from '../../types/drill';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import { JSONFileFormatAdapter } from '../../utils/fileIO';
 
 interface VersionHistoryProps {
   drillId: string; // Database UUID
@@ -49,7 +50,13 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: 
     setRestoring(version.id);
     try {
       // Restore the drill from the version
-      const restoredDrill = version.drill_data;
+      let restoredDrill = version.drill_data;
+      
+      // Migrate old normalized coordinates to meters if needed
+      // This ensures backward compatibility for versions saved before the coordinate system change
+      const jsonAdapter = new JSONFileFormatAdapter();
+      restoredDrill = jsonAdapter.migrateCoordinates(restoredDrill);
+      
       // Update metadata to reflect restoration
       restoredDrill.metadata.modifiedAt = new Date();
       

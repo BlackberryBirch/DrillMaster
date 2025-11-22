@@ -41,7 +41,7 @@ describe('drillStore', () => {
       const frame0 = useDrillStore.getState().getCurrentFrame();
       if (frame0) {
         useDrillStore.getState().updateFrame(frame0.id, { duration: 10.0 });
-        const horse = createHorse(generateId(), 1, { x: 0.5, y: 0.5 });
+        const horse = createHorse(generateId(), 1, { x: 0, y: 0 }); // Center in meters
         useDrillStore.getState().addHorseToFrame(frame0.id, horse);
       }
 
@@ -55,7 +55,7 @@ describe('drillStore', () => {
       expect(drill?.frames[1].duration).toBe(10.0);
       // Should copy horses
       expect(drill?.frames[1].horses).toHaveLength(1);
-      expect(drill?.frames[1].horses[0].position).toEqual({ x: 0.5, y: 0.5 });
+      expect(drill?.frames[1].horses[0].position).toEqual({ x: 0, y: 0 }); // Center in meters
       // Should select the new frame
       expect(useDrillStore.getState().currentFrameIndex).toBe(1);
     });
@@ -161,7 +161,7 @@ describe('drillStore', () => {
 
     it('should add horse to frame', () => {
       const frame = useDrillStore.getState().getCurrentFrame();
-      const horse = createHorse(generateId(), 1, { x: 0.5, y: 0.5 });
+      const horse = createHorse(generateId(), 1, { x: 0, y: 0 }); // Center in meters
 
       if (frame) {
         useDrillStore.getState().addHorseToFrame(frame.id, horse);
@@ -174,22 +174,22 @@ describe('drillStore', () => {
 
     it('should update horse in frame', () => {
       const frame = useDrillStore.getState().getCurrentFrame();
-      const horse = createHorse(generateId(), 1, { x: 0.5, y: 0.5 });
+      const horse = createHorse(generateId(), 1, { x: 0, y: 0 }); // Center in meters
 
       if (frame) {
         useDrillStore.getState().addHorseToFrame(frame.id, horse);
         useDrillStore.getState().updateHorseInFrame(frame.id, horse.id, {
-          position: { x: 0.75, y: 0.25 },
+          position: { x: 10, y: -20 }, // (0.75-0.5)*40=10, (0.25-0.5)*80=-20 in meters
         });
       }
 
       const updatedFrame = useDrillStore.getState().getCurrentFrame();
-      expect(updatedFrame?.horses[0].position).toEqual({ x: 0.75, y: 0.25 });
+      expect(updatedFrame?.horses[0].position).toEqual({ x: 10, y: -20 });
     });
 
     it('should remove horse from frame', () => {
       const frame = useDrillStore.getState().getCurrentFrame();
-      const horse = createHorse(generateId(), 1, { x: 0.5, y: 0.5 });
+      const horse = createHorse(generateId(), 1, { x: 0, y: 0 }); // Center in meters
 
       if (frame) {
         useDrillStore.getState().addHorseToFrame(frame.id, horse);
@@ -210,9 +210,10 @@ describe('drillStore', () => {
       const frame = useDrillStore.getState().getCurrentFrame();
       if (!frame) return;
 
-      const horse1 = createHorse(generateId(), 1, { x: 0.2, y: 0.3 });
-      const horse2 = createHorse(generateId(), 2, { x: 0.5, y: 0.7 });
-      const horse3 = createHorse(generateId(), 3, { x: 0.8, y: 0.4 });
+      // X uses ARENA_LENGTH (80m), Y uses ARENA_WIDTH (40m)
+      const horse1 = createHorse(generateId(), 1, { x: -24, y: -8 }); // (0.2-0.5)*80=-24, (0.3-0.5)*40=-8
+      const horse2 = createHorse(generateId(), 2, { x: 0, y: 8 }); // (0.5-0.5)*80=0, (0.7-0.5)*40=8
+      const horse3 = createHorse(generateId(), 3, { x: 24, y: -4 }); // (0.8-0.5)*80=24, (0.4-0.5)*40=-4
 
       useDrillStore.getState().addHorseToFrame(frame.id, horse1);
       useDrillStore.getState().addHorseToFrame(frame.id, horse2);
@@ -227,8 +228,8 @@ describe('drillStore', () => {
       const alignedFrame = useDrillStore.getState().getCurrentFrame();
       const alignedHorses = alignedFrame?.horses || [];
       
-      // All horses should have the same Y position (average of original Y positions)
-      const avgY = (0.3 + 0.7 + 0.4) / 3;
+      // All horses should have the same Y position (average of original Y positions in meters)
+      const avgY = (-8 + 8 + (-4)) / 3; // -4/3 ≈ -1.333
       alignedHorses.forEach((horse) => {
         expect(horse.position.y).toBeCloseTo(avgY, 5);
       });
@@ -238,9 +239,10 @@ describe('drillStore', () => {
       const frame = useDrillStore.getState().getCurrentFrame();
       if (!frame) return;
 
-      const horse1 = createHorse(generateId(), 1, { x: 0.2, y: 0.3 });
-      const horse2 = createHorse(generateId(), 2, { x: 0.5, y: 0.7 });
-      const horse3 = createHorse(generateId(), 3, { x: 0.8, y: 0.4 });
+      // X uses ARENA_LENGTH (80m), Y uses ARENA_WIDTH (40m)
+      const horse1 = createHorse(generateId(), 1, { x: -24, y: -8 }); // (0.2-0.5)*80=-24, (0.3-0.5)*40=-8
+      const horse2 = createHorse(generateId(), 2, { x: 0, y: 8 }); // (0.5-0.5)*80=0, (0.7-0.5)*40=8
+      const horse3 = createHorse(generateId(), 3, { x: 24, y: -4 }); // (0.8-0.5)*80=24, (0.4-0.5)*40=-4
 
       useDrillStore.getState().addHorseToFrame(frame.id, horse1);
       useDrillStore.getState().addHorseToFrame(frame.id, horse2);
@@ -255,8 +257,8 @@ describe('drillStore', () => {
       const alignedFrame = useDrillStore.getState().getCurrentFrame();
       const alignedHorses = alignedFrame?.horses || [];
       
-      // All horses should have the same X position (average of original X positions)
-      const avgX = (0.2 + 0.5 + 0.8) / 3;
+      // All horses should have the same X position (average of original X positions in meters)
+      const avgX = (-24 + 0 + 24) / 3; // 0
       alignedHorses.forEach((horse) => {
         expect(horse.position.x).toBeCloseTo(avgX, 5);
       });
@@ -267,9 +269,10 @@ describe('drillStore', () => {
       if (!frame) return;
 
       // Create horses in a diagonal line - the two most separated should be horse1 and horse3
-      const horse1 = createHorse(generateId(), 1, { x: 0.1, y: 0.1 });
-      const horse2 = createHorse(generateId(), 2, { x: 0.5, y: 0.5 });
-      const horse3 = createHorse(generateId(), 3, { x: 0.9, y: 0.9 });
+      // X uses ARENA_LENGTH (80m), Y uses ARENA_WIDTH (40m)
+      const horse1 = createHorse(generateId(), 1, { x: -32, y: -16 }); // (0.1-0.5)*80=-32, (0.1-0.5)*40=-16
+      const horse2 = createHorse(generateId(), 2, { x: 0, y: 0 }); // Center
+      const horse3 = createHorse(generateId(), 3, { x: 32, y: 16 }); // (0.9-0.5)*80=32, (0.9-0.5)*40=16
 
       useDrillStore.getState().addHorseToFrame(frame.id, horse1);
       useDrillStore.getState().addHorseToFrame(frame.id, horse2);
@@ -278,9 +281,9 @@ describe('drillStore', () => {
       const updatedFrame = useDrillStore.getState().getCurrentFrame();
       if (!updatedFrame) return;
 
-      // Move middle horse to a different position
+      // Move middle horse to a different position (in meters)
       useDrillStore.getState().updateHorseInFrame(updatedFrame.id, horse2.id, {
-        position: { x: 0.3, y: 0.4 },
+        position: { x: -16, y: -4 }, // (0.3-0.5)*80=-16, (0.4-0.5)*40=-4
       });
 
       const horseIds = updatedFrame.horses.map((h) => h.id);
@@ -293,16 +296,16 @@ describe('drillStore', () => {
       const h1 = distributedHorses.find((h) => h.id === horse1.id);
       const h3 = distributedHorses.find((h) => h.id === horse3.id);
       
-      // Horse1 and horse3 should be at their original positions (the endpoints)
-      expect(h1?.position.x).toBeCloseTo(0.1, 5);
-      expect(h1?.position.y).toBeCloseTo(0.1, 5);
-      expect(h3?.position.x).toBeCloseTo(0.9, 5);
-      expect(h3?.position.y).toBeCloseTo(0.9, 5);
+      // Horse1 and horse3 should be at their original positions (the endpoints in meters)
+      expect(h1?.position.x).toBeCloseTo(-32, 5);
+      expect(h1?.position.y).toBeCloseTo(-16, 5);
+      expect(h3?.position.x).toBeCloseTo(32, 5);
+      expect(h3?.position.y).toBeCloseTo(16, 5);
       
-      // Horse2 should be evenly spaced between them
+      // Horse2 should be evenly spaced between them (center)
       const h2 = distributedHorses.find((h) => h.id === horse2.id);
-      expect(h2?.position.x).toBeCloseTo(0.5, 5);
-      expect(h2?.position.y).toBeCloseTo(0.5, 5);
+      expect(h2?.position.x).toBeCloseTo(0, 5);
+      expect(h2?.position.y).toBeCloseTo(0, 5);
     });
 
     describe('distributeHorsesEvenlyAroundCircle', () => {
@@ -320,10 +323,11 @@ describe('drillStore', () => {
         return Math.atan2(dy, dx);
       };
 
-      // Helper function to generate random position within bounds
+      // Helper function to generate random position within bounds (in meters)
+      // Arena is 40m x 80m, so x ranges from -20 to +20, y ranges from -40 to +40
       const randomPosition = () => ({
-        x: 0.1 + Math.random() * 0.8, // Between 0.1 and 0.9
-        y: 0.1 + Math.random() * 0.8,
+        x: -16 + Math.random() * 32, // Between -16 and +16 meters
+        y: -32 + Math.random() * 64, // Between -32 and +32 meters
       });
 
       // Helper function to generate random orientation
@@ -513,7 +517,7 @@ describe('drillStore', () => {
             expect(diff).toBeCloseTo(angleStep, 1);
           }
           // Check wrap-around
-          let lastDiff = angles[0] - angles[angles.length - 1] + 2 * Math.PI;
+          const lastDiff = angles[0] - angles[angles.length - 1] + 2 * Math.PI;
           expect(lastDiff).toBeCloseTo(angleStep, 1);
         }
       });
@@ -537,12 +541,12 @@ describe('drillStore', () => {
           const currentFrame = useDrillStore.getState().getCurrentFrame();
           if (!currentFrame) return;
 
-          // Random center and radius
+          // Random center and radius (in meters)
           const center = { 
-            x: 0.2 + Math.random() * 0.6, 
-            y: 0.2 + Math.random() * 0.6 
+            x: -12 + Math.random() * 24, // -12 to +12 meters
+            y: -24 + Math.random() * 48  // -24 to +24 meters
           };
-          const radius = 0.05 + Math.random() * 0.15;
+          const radius = 2 + Math.random() * 6; // 2-8 meters (was 0.05-0.15 normalized)
 
           // Create 4 horses already on a circle but not evenly spaced
           const angles = [
@@ -621,7 +625,7 @@ describe('drillStore', () => {
           // Create 3 horses in a line (random orientation and position)
           const lineStart = randomPosition();
           const lineAngle = randomOrientation();
-          const lineLength = 0.1 + Math.random() * 0.3;
+          const lineLength = 4 + Math.random() * 8; // 4-12 meters (was 0.1-0.3 normalized)
           
           const horse1 = createHorse(generateId(), 1, 
             { x: lineStart.x, y: lineStart.y }, randomOrientation());
@@ -718,9 +722,10 @@ describe('drillStore', () => {
         // Horse 1: (0.46, 0.41) direction 260° = 4.537 radians
         // Horse 2: (0.59, 0.30) direction 380° = 6.633 radians  
         // Horse 3: (0.61, 0.47) direction -40° = -0.698 radians
-        const horse1 = createHorse(generateId(), 1, { x: 0.46, y: 0.41 }, 4.537);
-        const horse2 = createHorse(generateId(), 2, { x: 0.59, y: 0.30 }, 6.633);
-        const horse3 = createHorse(generateId(), 3, { x: 0.61, y: 0.47 }, -0.698);
+        // Convert normalized to meters: (norm - 0.5) * dimension
+        const horse1 = createHorse(generateId(), 1, { x: -1.6, y: -7.2 }, 4.537); // (0.46-0.5)*40=-1.6, (0.41-0.5)*80=-7.2
+        const horse2 = createHorse(generateId(), 2, { x: 3.6, y: -16 }, 6.633); // (0.59-0.5)*40=3.6, (0.30-0.5)*80=-16
+        const horse3 = createHorse(generateId(), 3, { x: 4.4, y: -2.4 }, -0.698); // (0.61-0.5)*40=4.4, (0.47-0.5)*80=-2.4
 
         useDrillStore.getState().addHorseToFrame(frame.id, horse1);
         useDrillStore.getState().addHorseToFrame(frame.id, horse2);
@@ -800,7 +805,7 @@ describe('drillStore', () => {
 
           // Create 4 horses in a random cluster
           const clusterCenter = randomPosition();
-          const clusterRadius = 0.05 + Math.random() * 0.1;
+          const clusterRadius = 2 + Math.random() * 4; // 2-6 meters (was 0.05-0.1 normalized, ~2-4 meters)
           
           const horse1 = createHorse(generateId(), 1, 
             { x: clusterCenter.x + (Math.random() - 0.5) * clusterRadius, 
@@ -849,7 +854,9 @@ describe('drillStore', () => {
 
           // Total distance should be reasonable (horses should be close to original positions)
           // Since we're optimizing, the distance should be minimized
-          expect(totalDistance).toBeLessThan(1.0); // Should be much less than 1.0 in normalized coordinates
+          // Distance is in meters, so allow for reasonable tolerance (e.g., 15 meters total for 4 horses)
+          // Note: This is a randomized test, so the threshold needs to account for variation
+          expect(totalDistance).toBeLessThan(15.0);
         }
       });
     });

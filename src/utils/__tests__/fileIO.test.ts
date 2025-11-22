@@ -19,7 +19,7 @@ describe('JSONFileFormatAdapter', () => {
       const result = adapter.serialize(drill);
       const parsed = JSON.parse(result);
 
-      expect(parsed.version).toBe('1.0.0');
+      expect(parsed.version).toBe('1.1.0');
       expect(parsed.format).toBe('drill-json');
       expect(parsed.drill.id).toBe('test-id');
       expect(parsed.drill.name).toBe('Test Drill');
@@ -63,6 +63,212 @@ describe('JSONFileFormatAdapter', () => {
       expect(() => {
         adapter.deserialize('invalid json');
       }).toThrow();
+    });
+
+    it('should migrate old version files with normalized coordinates to meters', () => {
+      // Create old format file (version 1.0.0) with normalized coordinates
+      const oldFormatFile = {
+        version: '1.0.0',
+        format: 'drill-json',
+        drill: {
+          id: 'test-id',
+          name: 'Test Drill',
+          metadata: {
+            createdAt: '2024-01-01T00:00:00Z',
+            modifiedAt: '2024-01-01T00:00:00Z',
+          },
+          frames: [
+            {
+              id: 'frame-1',
+              index: 0,
+              timestamp: 0,
+              duration: 5.0,
+              horses: [
+                {
+                  id: 'horse-1',
+                  label: 1,
+                  position: { x: 0.0, y: 0.0 }, // Top-left (old format)
+                  direction: 0,
+                  speed: 'walk',
+                },
+                {
+                  id: 'horse-2',
+                  label: 2,
+                  position: { x: 0.5, y: 0.5 }, // Center (old format)
+                  direction: Math.PI / 2,
+                  speed: 'trot',
+                },
+                {
+                  id: 'horse-3',
+                  label: 3,
+                  position: { x: 1.0, y: 1.0 }, // Bottom-right (old format)
+                  direction: Math.PI,
+                  speed: 'canter',
+                },
+              ],
+              subPatterns: [],
+            },
+            {
+              id: 'frame-2',
+              index: 1,
+              timestamp: 5.0,
+              duration: 5.0,
+              horses: [
+                {
+                  id: 'horse-4',
+                  label: 4,
+                  position: { x: 0.25, y: 0.75 }, // Old format
+                  direction: 0,
+                  speed: 'walk',
+                },
+              ],
+              subPatterns: [],
+            },
+          ],
+        },
+      };
+
+      const serialized = JSON.stringify(oldFormatFile);
+      const result = adapter.deserialize(serialized);
+
+      // Verify all frames were processed
+      expect(result.frames).toHaveLength(2);
+
+      // Verify first frame horses were migrated
+      const frame1Horses = result.frames[0].horses;
+      expect(frame1Horses).toHaveLength(3);
+      
+      // Horse 1: (0.0, 0.0) normalized -> (-40, -20) meters (X uses LENGTH, Y uses WIDTH)
+      expect(frame1Horses[0].position.x).toBe(-40);
+      expect(frame1Horses[0].position.y).toBe(-20);
+      
+      // Horse 2: (0.5, 0.5) normalized -> (0, 0) meters
+      expect(frame1Horses[1].position.x).toBe(0);
+      expect(frame1Horses[1].position.y).toBe(0);
+      
+      // Horse 3: (1.0, 1.0) normalized -> (40, 20) meters (X uses LENGTH, Y uses WIDTH)
+      expect(frame1Horses[2].position.x).toBe(40);
+      expect(frame1Horses[2].position.y).toBe(20);
+
+      // Verify second frame horses were migrated
+      const frame2Horses = result.frames[1].horses;
+      expect(frame2Horses).toHaveLength(1);
+      
+      // Horse 4: (0.25, 0.75) normalized -> (-20, 10) meters (X uses LENGTH, Y uses WIDTH)
+      expect(frame2Horses[0].position.x).toBe(-20);
+      expect(frame2Horses[0].position.y).toBe(10);
+
+      // Verify other properties are preserved
+      expect(frame1Horses[0].id).toBe('horse-1');
+      expect(frame1Horses[0].label).toBe(1);
+      expect(frame1Horses[0].direction).toBe(0);
+      expect(frame1Horses[0].speed).toBe('walk');
+    });
+
+    it('should not migrate new version files (already in meters)', () => {
+      // Create new format file (version 1.1.0) with meters
+      const newFormatFile = {
+        version: '1.1.0',
+        format: 'drill-json',
+        drill: {
+          id: 'test-id',
+          name: 'Test Drill',
+          metadata: {
+            createdAt: '2024-01-01T00:00:00Z',
+            modifiedAt: '2024-01-01T00:00:00Z',
+          },
+          frames: [
+            {
+              id: 'frame-1',
+              index: 0,
+              timestamp: 0,
+              duration: 5.0,
+              horses: [
+                {
+                  id: 'horse-1',
+                  label: 1,
+                  position: { x: -20, y: -40 }, // Already in meters
+                  direction: 0,
+                  speed: 'walk',
+                },
+                {
+                  id: 'horse-2',
+                  label: 2,
+                  position: { x: 0, y: 0 }, // Already in meters (center)
+                  direction: Math.PI / 2,
+                  speed: 'trot',
+                },
+              ],
+              subPatterns: [],
+            },
+          ],
+        },
+      };
+
+      const serialized = JSON.stringify(newFormatFile);
+      const result = adapter.deserialize(serialized);
+
+      // Verify positions were NOT changed (already in meters)
+      const horses = result.frames[0].horses;
+      expect(horses[0].position.x).toBe(-20);
+      expect(horses[0].position.y).toBe(-40);
+      expect(horses[1].position.x).toBe(0);
+      expect(horses[1].position.y).toBe(0);
+    });
+
+    it('should handle empty frames and frames with no horses', () => {
+      const oldFormatFile = {
+        version: '1.0.0',
+        format: 'drill-json',
+        drill: {
+          id: 'test-id',
+          name: 'Test Drill',
+          metadata: {
+            createdAt: '2024-01-01T00:00:00Z',
+            modifiedAt: '2024-01-01T00:00:00Z',
+          },
+          frames: [
+            {
+              id: 'frame-1',
+              index: 0,
+              timestamp: 0,
+              duration: 5.0,
+              horses: [], // Empty frame
+              subPatterns: [],
+            },
+            {
+              id: 'frame-2',
+              index: 1,
+              timestamp: 5.0,
+              duration: 5.0,
+              horses: [
+                {
+                  id: 'horse-1',
+                  label: 1,
+                  position: { x: 0.5, y: 0.5 },
+                  direction: 0,
+                  speed: 'walk',
+                },
+              ],
+              subPatterns: [],
+            },
+          ],
+        },
+      };
+
+      const serialized = JSON.stringify(oldFormatFile);
+      const result = adapter.deserialize(serialized);
+
+      // Verify both frames exist
+      expect(result.frames).toHaveLength(2);
+      
+      // First frame should be empty
+      expect(result.frames[0].horses).toHaveLength(0);
+      
+      // Second frame should have migrated horse
+      expect(result.frames[1].horses).toHaveLength(1);
+      expect(result.frames[1].horses[0].position.x).toBe(0);
+      expect(result.frames[1].horses[0].position.y).toBe(0);
     });
   });
 

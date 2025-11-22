@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { Drill } from '../types/drill';
 import { DrillRecord, CreateDrillInput, UpdateDrillInput, DatabaseResult, DrillVersionRecord } from '../types/database';
 import type { User } from '@supabase/supabase-js';
+import { JSONFileFormatAdapter } from '../utils/fileIO';
 
 /**
  * Configuration constants
@@ -632,6 +633,9 @@ export class DrillService {
    * Convert a DrillRecord to a Drill (for use in the app)
    * Note: This method now requires loading the latest version to get drill_data
    * Use getDrillWithLatestVersion() instead for loading drills
+   * 
+   * IMPORTANT: This method also migrates old normalized coordinates (0-1) to meters
+   * for drills loaded from the cloud, ensuring backward compatibility.
    */
   static async recordToDrill(record: DrillRecord, latestVersion: DrillVersionRecord | null): Promise<Drill | null> {
     if (!latestVersion) {
@@ -639,7 +643,13 @@ export class DrillService {
     }
     
     // Get drill data from latest version
-    const drill = latestVersion.drill_data;
+    let drill = latestVersion.drill_data;
+    
+    // Migrate old normalized coordinates to meters if needed
+    // This ensures backward compatibility for drills saved before the coordinate system change
+    const jsonAdapter = new JSONFileFormatAdapter();
+    drill = jsonAdapter.migrateCoordinates(drill);
+    
     // Synchronize drill.id with short_id from database
     drill.id = record.short_id;
     drill.metadata.createdAt = new Date(record.created_at);

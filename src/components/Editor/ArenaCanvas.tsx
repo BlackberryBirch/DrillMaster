@@ -359,26 +359,28 @@ export default function ArenaCanvas({
       const rectWidth = Math.abs(selectionRect.endX - selectionRect.startX);
       const rectHeight = Math.abs(selectionRect.endY - selectionRect.startY);
       
-      // Convert rectangle bounds to normalized coordinates
-      const normalizedRect = {
-        x: rectX / width,
-        y: rectY / height,
-        width: rectWidth / width,
-        height: rectHeight / height,
+      // Convert rectangle bounds from canvas coordinates to meters from center
+      const rectTopLeft = canvasToPoint(rectX, rectY, width, height);
+      const rectBottomRight = canvasToPoint(rectX + rectWidth, rectY + rectHeight, width, height);
+      const metersRect = {
+        x: Math.min(rectTopLeft.x, rectBottomRight.x),
+        y: Math.min(rectTopLeft.y, rectBottomRight.y),
+        width: Math.abs(rectBottomRight.x - rectTopLeft.x),
+        height: Math.abs(rectBottomRight.y - rectTopLeft.y),
       };
       
       // Find all horses whose centers are within the rectangle
       const horsesInRect: string[] = [];
       horsesToDisplay.forEach((horse) => {
-        const horseX = horse.position.x;
-        const horseY = horse.position.y;
+        const horseX = horse.position.x; // Already in meters
+        const horseY = horse.position.y; // Already in meters
         
-        // Check if horse center is within rectangle
+        // Check if horse center is within rectangle (both in meters)
         if (
-          horseX >= normalizedRect.x &&
-          horseX <= normalizedRect.x + normalizedRect.width &&
-          horseY >= normalizedRect.y &&
-          horseY <= normalizedRect.y + normalizedRect.height
+          horseX >= metersRect.x &&
+          horseX <= metersRect.x + metersRect.width &&
+          horseY >= metersRect.y &&
+          horseY <= metersRect.y + metersRect.height
         ) {
           horsesInRect.push(horse.id);
         }

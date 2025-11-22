@@ -123,7 +123,7 @@ export default function PropertiesPanel() {
             </div>
             
             <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-              <div>Position: ({selectedHorse.position.x.toFixed(2)}, {selectedHorse.position.y.toFixed(2)})</div>
+              <div>Position: ({selectedHorse.position.x.toFixed(2)}, {selectedHorse.position.y.toFixed(2)}) m</div>
             </div>
           </div>
         </div>

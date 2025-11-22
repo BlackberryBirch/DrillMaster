@@ -38,7 +38,7 @@ The drill file format is designed to be:
           {
             "id": "horse-uuid",
             "label": "1",
-            "position": { "x": 0.25, "y": 0.5 },
+            "position": { "x": -10, "y": 0 },
             "direction": 0.0,
             "speed": "walk",
             "locked": false,
@@ -72,7 +72,8 @@ The drill file format is designed to be:
 
 ### Version
 - **version**: String (semver format)
-  - Current version: "1.0.0"
+  - Current version: "1.1.0"
+  - Legacy version: "1.0.0" (uses normalized 0-1 coordinates, automatically migrated)
   - Used for format migration/validation
 
 ### Format
@@ -117,8 +118,8 @@ The drill file format is designed to be:
   - Display label (number or name)
 
 - **position**: Object
-  - **x**: Number (0.0 - 1.0, normalized)
-  - **y**: Number (0.0 - 1.0, normalized)
+  - **x**: Number (meters from center, e.g., -40 to +40 for 80m long arena)
+  - **y**: Number (meters from center, e.g., -20 to +20 for 40m wide arena)
 
 - **direction**: Number
   - Direction in radians (0 = right, π/2 = up, π = left, 3π/2 = down)
@@ -161,11 +162,16 @@ The drill file format is designed to be:
 
 ## Coordinate System
 
-- **Normalized Coordinates**: All positions use 0.0-1.0 range
-  - x: 0.0 = left edge, 1.0 = right edge
-  - y: 0.0 = top edge, 1.0 = bottom edge
-- **Arena Dimensions**: Stored in application constants, not in file
-- **Benefits**: Device-independent, resolution-independent
+- **Meters from Center**: All positions use meters from the arena center point
+  - x: -ARENA_WIDTH/2 = left edge, 0 = center, +ARENA_WIDTH/2 = right edge
+  - y: -ARENA_LENGTH/2 = top edge, 0 = center, +ARENA_LENGTH/2 = bottom edge
+  - Example: For a 40m x 80m arena, x ranges from -20 to +20, y ranges from -40 to +40
+- **Arena Dimensions**: Stored in application constants, not in file (default: 40m x 80m)
+- **Benefits**: 
+  - Portable across different arena sizes
+  - Square coordinate space (no aspect ratio distortion)
+  - Real-world units (meters) for intuitive positioning
+- **Migration**: Files saved in version 1.0.0 (normalized 0-1 coordinates) are automatically migrated to meters from center when loaded
 
 ## Future Format Support
 

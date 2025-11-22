@@ -246,7 +246,7 @@ export function useGroupTransformations({
       const newCanvasX = rotatedX + centerCanvas.x;
       const newCanvasY = rotatedY + centerCanvas.y;
 
-      // Convert back to normalized
+      // Convert back to meters from center
       const newPos = canvasToPoint(newCanvasX, newCanvasY, width, height);
       
       // Also rotate the horse's direction
@@ -448,7 +448,7 @@ export function useGroupTransformations({
       const newCanvasX = rotatedX + centerCanvas.x;
       const newCanvasY = rotatedY + centerCanvas.y;
 
-      // Convert back to normalized
+      // Convert back to meters from center
       const newPos = canvasToPoint(newCanvasX, newCanvasY, width, height);
       
       // Also rotate the horse's direction
@@ -558,7 +558,7 @@ export function useGroupTransformations({
       const newCanvasX = scaledX + centerCanvas.x;
       const newCanvasY = scaledY + centerCanvas.y;
 
-      // Convert back to normalized
+      // Convert back to meters from center
       const newPos = canvasToPoint(newCanvasX, newCanvasY, width, height);
       
       updates.set(horse.id, {
@@ -728,7 +728,7 @@ export function useGroupTransformations({
       const newCanvasX = scaledX + centerCanvas.x;
       const newCanvasY = scaledY + centerCanvas.y;
 
-      // Convert back to normalized
+      // Convert back to meters from center
       const newPos = canvasToPoint(newCanvasX, newCanvasY, width, height);
       
       finalUpdates.set(horse.id, {

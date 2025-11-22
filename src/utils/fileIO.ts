@@ -1,11 +1,13 @@
 import { Drill, DrillFile, FileFormatAdapter } from '../types';
+import { normalizedToMeters } from '../constants/arena';
 
 /**
  * JSON File Format Adapter
  */
 export class JSONFileFormatAdapter implements FileFormatAdapter {
-  private readonly version = '1.0.0';
+  private readonly version = '1.1.0'; // Updated to reflect coordinate system change
   private readonly format = 'drill-json';
+  private readonly legacyVersion = '1.0.0'; // Old version with normalized coordinates
 
   serialize(drill: Drill): string {
     // Create a copy of the drill, but exclude the signed URL from audioTrack
@@ -35,6 +37,65 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
     return JSON.stringify(file, null, 2);
   }
 
+  /**
+   * Migrate old normalized coordinates (0-1) to meters from center
+   * Processes all frames and all horses in each frame
+   * This is public so it can be used by cloud storage adapter
+   */
+  migrateCoordinates(drill: Drill): Drill {
+    // Ensure we have frames to process
+    if (!drill.frames || drill.frames.length === 0) {
+      return drill;
+    }
+
+    return {
+      ...drill,
+      frames: drill.frames.map((frame) => {
+        // Ensure frame has horses array
+        if (!frame.horses || frame.horses.length === 0) {
+          return frame;
+        }
+
+        return {
+          ...frame,
+          horses: frame.horses.map((horse) => {
+            // Validate position exists
+            if (!horse.position || typeof horse.position.x !== 'number' || typeof horse.position.y !== 'number') {
+              // Invalid position, skip conversion
+              return horse;
+            }
+
+            // Check if coordinates are in old normalized format (0-1 range)
+            // Old format: x and y are both in [0, 1] range (with slight tolerance for floating point errors)
+            // New format: x in [-20, 20], y in [-40, 40] for 40m x 80m arena
+            // We use a small tolerance to handle floating point precision (e.g., 0.99999999)
+            const tolerance = 0.001;
+            const isOldFormat = 
+              (horse.position.x >= 0 - tolerance && horse.position.x <= 1 + tolerance) &&
+              (horse.position.y >= 0 - tolerance && horse.position.y <= 1 + tolerance);
+            
+            if (isOldFormat) {
+              // Clamp to valid range before conversion to handle floating point errors
+              const clampedX = Math.max(0, Math.min(1, horse.position.x));
+              const clampedY = Math.max(0, Math.min(1, horse.position.y));
+              
+              // Convert from normalized to meters
+              const metersPos = normalizedToMeters(clampedX, clampedY);
+              
+              return {
+                ...horse,
+                position: metersPos,
+              };
+            }
+            
+            // Already in new format (outside 0-1 range), no conversion needed
+            return horse;
+          }),
+        };
+      }),
+    };
+  }
+
   deserialize(data: string): Drill {
     const file: DrillFile = JSON.parse(data);
 
@@ -43,7 +104,7 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
     }
 
     // Convert date strings back to Date objects
-    return {
+    let drill: Drill = {
       ...file.drill,
       metadata: {
         ...file.drill.metadata,
@@ -51,6 +112,13 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
         modifiedAt: new Date(file.drill.metadata.modifiedAt),
       },
     };
+
+    // Migrate old files with normalized coordinates to meters-based coordinates
+    if (file.version === this.legacyVersion) {
+      drill = this.migrateCoordinates(drill);
+    }
+
+    return drill;
   }
 
   validate(data: unknown): boolean {
@@ -59,8 +127,9 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
     }
 
     const file = data as Partial<DrillFile>;
+    // Accept both old and new versions for backward compatibility
     return (
-      file.version === this.version &&
+      (file.version === this.version || file.version === this.legacyVersion) &&
       file.format === this.format &&
       file.drill !== undefined &&
       Array.isArray(file.drill.frames)

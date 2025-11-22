@@ -23,7 +23,7 @@ export default function EditorToolbar() {
     const newHorse = createHorse(
       generateId(),
       currentFrame.horses.length + 1,
-      { x: 0.5, y: 0.5 },
+      { x: 0, y: 0 }, // Center of arena in meters
       0,
       'walk'
     );

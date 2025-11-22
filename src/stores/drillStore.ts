@@ -556,23 +556,24 @@ export const useDrillStore = create<DrillStore>()(
       console.log(`[Step 1] Horse ${horse.id}: pos=(${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}), dir=${(pos.direction * 180 / Math.PI).toFixed(1)}°`);
     });
 
-    // Calculate center of all horses
+    // Calculate center of all horses (in meters)
+    // All positions are already in meters from arena center
     let sumX = 0;
     let sumY = 0;
     selectedHorses.forEach((horse) => {
-      sumX += horse.position.x;
-      sumY += horse.position.y;
+      sumX += horse.position.x; // meters
+      sumY += horse.position.y; // meters
     });
-    const center = { x: sumX / selectedHorses.length, y: sumY / selectedHorses.length };
-    console.log(`[Step 1] Center: (${center.x.toFixed(3)}, ${center.y.toFixed(3)})`);
+    const center = { x: sumX / selectedHorses.length, y: sumY / selectedHorses.length }; // meters
+    console.log(`[Step 1] Center: (${center.x.toFixed(3)}, ${center.y.toFixed(3)})m`);
 
-    // Calculate radius (distance from center to farthest horse)
+    // Calculate radius (distance from center to farthest horse, in meters)
     let maxDist = 0;
     selectedHorses.forEach((horse) => {
-      const dist = distance(center, horse.position);
+      const dist = distance(center, horse.position); // distance in meters
       maxDist = Math.max(maxDist, dist);
     });
-    console.log(`[Step 1] Max distance (radius): ${maxDist.toFixed(3)}`);
+    console.log(`[Step 1] Max distance (radius): ${maxDist.toFixed(3)}m`);
 
     // If all horses are at the same position, nothing to do
     if (maxDist === 0) {
@@ -582,20 +583,21 @@ export const useDrillStore = create<DrillStore>()(
 
     // Step 2: Use handleRadialDistribute logic to place horses on circle
     // (preserve their polar angles and snap to circle edge)
+    // All calculations are in meters (coordinates are already in meters from center)
     console.log('[Step 2] Placing horses on circle (preserving polar angles)');
     const horsesOnCircle = new Map<string, { x: number; y: number; angle: number; direction: number }>();
     
     selectedHorses.forEach((horse) => {
       const originalPos = originalPositions.get(horse.id)!;
       
-      // Calculate polar coordinates (angle and distance from center)
-      const dx = originalPos.x - center.x;
-      const dy = originalPos.y - center.y;
+      // Calculate polar coordinates (angle and distance from center, in meters)
+      const dx = originalPos.x - center.x; // meters
+      const dy = originalPos.y - center.y; // meters
       const polarAngle = Math.atan2(dy, dx);
       
-      // Calculate position on circle edge using preserved polar angle
-      const newX = center.x + maxDist * Math.cos(polarAngle);
-      const newY = center.y + maxDist * Math.sin(polarAngle);
+      // Calculate position on circle edge using preserved polar angle (in meters)
+      const newX = center.x + maxDist * Math.cos(polarAngle); // meters
+      const newY = center.y + maxDist * Math.sin(polarAngle); // meters
       
       // Calculate both tangential directions
       const clockwiseDirection = polarAngle + Math.PI / 2;
@@ -641,6 +643,7 @@ export const useDrillStore = create<DrillStore>()(
     });
 
     // Step 3: Starting from one horse, rotate others to be evenly distributed
+    // All calculations are in meters (coordinates are already in meters from center)
     console.log('[Step 3] Evenly distributing horses around circle');
     // Normalize angles to [0, 2π] for consistent sorting
     const normalizeAngle = (angle: number): number => {
@@ -665,13 +668,14 @@ export const useDrillStore = create<DrillStore>()(
 
     // Actually redistribute horses to evenly spaced angles (0, angleStep, 2*angleStep, etc.)
     // and adjust their rotations accordingly
+    // All positions are in meters: center (meters), maxDist (meters), new positions (meters)
     const evenlyDistributedHorses = new Map<string, { x: number; y: number; angle: number; direction: number }>();
     
     horsesSorted.forEach((horseData, index) => {
       // Calculate evenly spaced angle (0, angleStep, 2*angleStep, ...)
       const evenlySpacedAngle = index * angleStep;
       
-      // Calculate position on circle at evenly spaced angle
+      // Calculate position on circle at evenly spaced angle (in meters)
       const newX = center.x + maxDist * Math.cos(evenlySpacedAngle);
       const newY = center.y + maxDist * Math.sin(evenlySpacedAngle);
       
@@ -687,8 +691,10 @@ export const useDrillStore = create<DrillStore>()(
         rotationDelta += 2 * Math.PI;
       }
       
-      // Rotate the direction by the same amount
-      const newDirection = horseData.normalizedAngle + rotationDelta;
+      // Rotate the original direction by the same amount as the position rotation
+      // Get the original direction from the original positions
+      const originalDirection = originalPositions.get(horseData.id)?.direction || 0;
+      const newDirection = originalDirection + rotationDelta;
       
       evenlyDistributedHorses.set(horseData.id, {
         x: newX,
@@ -696,83 +702,9 @@ export const useDrillStore = create<DrillStore>()(
         angle: evenlySpacedAngle,
         direction: newDirection,
       });
-      console.log(`[Step 3] Horse ${horseData.id}: evenlySpacedAngle=${(evenlySpacedAngle * 180 / Math.PI).toFixed(1)}°, pos=(${newX.toFixed(3)}, ${newY.toFixed(3)}), rotationDelta=${(rotationDelta * 180 / Math.PI).toFixed(1)}°, newDir=${(newDirection * 180 / Math.PI).toFixed(1)}°`);
+      console.log(`[Step 3] Horse ${horseData.id}: evenlySpacedAngle=${(evenlySpacedAngle * 180 / Math.PI).toFixed(1)}°, pos=(${newX.toFixed(3)}, ${newY.toFixed(3)})m, rotationDelta=${(rotationDelta * 180 / Math.PI).toFixed(1)}°, newDir=${(newDirection * 180 / Math.PI).toFixed(1)}°`);
     });
 
-    // Step 4: Try rotations from 0 to 360 degrees (0 to 2π radians) in 5-degree steps
-    // Find the rotation that minimizes mean square distance to original positions
-    if (false) {
-    console.log('[Step 4] Optimizing rotation to minimize distance to original positions');
-    const stepDegrees = 5;
-    const stepRadians = (stepDegrees * Math.PI) / 180;
-    let bestRotation = 0;
-    let minMeanSquareDistance = Infinity;
-    let rotationCount = 0;
-
-    for (let rotationRad = 0; rotationRad < 2 * Math.PI; rotationRad += stepRadians) {
-      rotationCount++;
-      // Calculate positions for this rotation
-      const rotatedPositions = new Map<string, { x: number; y: number }>();
-      let totalSquareDistance = 0;
-      let validHorseCount = 0;
-
-      evenlyDistributedHorses.forEach((horseData, horseId) => {
-        // Calculate rotated angle (evenly spaced angle + rotation offset)
-        const targetAngle = horseData.angle + rotationRad;
-        
-        // Calculate position on circle
-        const newX = center.x + maxDist * Math.cos(targetAngle);
-        const newY = center.y + maxDist * Math.sin(targetAngle);
-        
-        rotatedPositions.set(horseId, { x: newX, y: newY });
-        
-        // Calculate distance to original position
-        const originalPos = originalPositions.get(horseId);
-        if (!originalPos) return;
-        const dist = distance({ x: newX, y: newY }, { x: originalPos.x, y: originalPos.y });
-        totalSquareDistance += dist * dist;
-        validHorseCount++;
-      });
-
-      // Only calculate mean if we have valid horses
-      if (validHorseCount > 0) {
-        const meanSquareDistance = totalSquareDistance / validHorseCount;
-        if (meanSquareDistance < minMeanSquareDistance) {
-          minMeanSquareDistance = meanSquareDistance;
-          bestRotation = rotationRad;
-          console.log(`[Step 4] New best rotation: ${(rotationRad * 180 / Math.PI).toFixed(1)}°, meanSquareDist=${meanSquareDistance.toFixed(6)}`);
-        }
-      }
-    }
-    console.log(`[Step 4] Optimization complete: tried ${rotationCount} rotations, best rotation: ${(bestRotation * 180 / Math.PI).toFixed(1)}°, minMeanSquareDist=${minMeanSquareDistance.toFixed(6)}`);
-
-    // Apply the best rotation
-    console.log('[Final Step] Applying best rotation to final positions');
-    const finalPositions = new Map<string, { x: number; y: number; direction: number }>();
-    
-    evenlyDistributedHorses.forEach((horseData, horseId) => {
-      // Calculate final angle (evenly spaced angle + best rotation)
-      const targetAngle = horseData.angle + bestRotation;
-      
-      // Calculate position on circle
-      const newX = center.x + maxDist * Math.cos(targetAngle);
-      const newY = center.y + maxDist * Math.sin(targetAngle);
-      
-      // Rotate the direction by the same amount as the rotation
-      const newDirection = horseData.direction + bestRotation;
-      
-      const originalPos = originalPositions.get(horseId);
-      const distMoved = originalPos ? distance({ x: newX, y: newY }, { x: originalPos.x, y: originalPos.y }) : 0;
-      
-      finalPositions.set(horseId, {
-        x: newX,
-        y: newY,
-        direction: newDirection,
-      });
-      
-      console.log(`[Final Step] Horse ${horseId}: finalPos=(${newX.toFixed(3)}, ${newY.toFixed(3)}), finalDir=${(newDirection * 180 / Math.PI).toFixed(1)}°, distMoved=${distMoved.toFixed(3)}`);
-    });
-  }
     // Save previous state for undo
     const previousDrill = JSON.parse(JSON.stringify(drill));
 
@@ -784,7 +716,8 @@ export const useDrillStore = create<DrillStore>()(
           ? {
               ...f,
               horses: f.horses.map((horse) => {
-                const update = horsesOnCircle.get(horse.id);
+                // Use evenlyDistributedHorses (Step 3 result) not horsesOnCircle (Step 2 intermediate)
+                const update = evenlyDistributedHorses.get(horse.id);
                 if (update) {
                   return { ...horse, position: { x: update.x, y: update.y }, direction: update.direction };
                 }

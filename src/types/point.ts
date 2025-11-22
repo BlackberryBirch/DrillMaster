@@ -1,6 +1,6 @@
 export interface Point {
-  x: number; // 0-1 normalized coordinates
-  y: number; // 0-1 normalized coordinates
+  x: number; // meters from center (e.g., -20 to +20 for 40m wide arena)
+  y: number; // meters from center (e.g., -40 to +40 for 80m long arena)
 }
 
 export const createPoint = (x: number, y: number): Point => ({ x, y });
