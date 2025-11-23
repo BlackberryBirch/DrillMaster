@@ -71,6 +71,7 @@ export interface BoundingCircle {
 
 /**
  * Calculate the bounding circle for a group of horses
+ * Uses the same center calculation as rotation (calculateGroupCenter) for consistency
  */
 export const calculateBoundingCircle = (horses: Horse[], width: number, height: number): BoundingCircle => {
   trace('calculateBoundingCircle', 'Called', { horseCount: horses.length, width, height });
@@ -80,33 +81,22 @@ export const calculateBoundingCircle = (horses: Horse[], width: number, height: 
     return { center: { x: 0, y: 0 }, radius: 0 };
   }
 
-  // Convert all horse positions to canvas coordinates
+  // Use the same center calculation as rotation (average of positions in world coordinates)
+  const centerWorld = calculateGroupCenter(horses);
+  
+  // Convert center to canvas coordinates
+  const centerCanvas = pointToCanvas(centerWorld, width, height);
+
+  // Convert all horse positions to canvas coordinates for radius calculation
   const canvasPositions = horses.map((horse) =>
     pointToCanvas(horse.position, width, height)
   );
 
-  // Find bounding box
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-
-  canvasPositions.forEach((pos) => {
-    minX = Math.min(minX, pos.x);
-    maxX = Math.max(maxX, pos.x);
-    minY = Math.min(minY, pos.y);
-    maxY = Math.max(maxY, pos.y);
-  });
-
-  // Calculate center
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-
   // Calculate radius (distance from center to farthest point)
   let maxDist = 0;
   canvasPositions.forEach((pos) => {
-    const dx = pos.x - centerX;
-    const dy = pos.y - centerY;
+    const dx = pos.x - centerCanvas.x;
+    const dy = pos.y - centerCanvas.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     maxDist = Math.max(maxDist, dist);
   });
@@ -116,13 +106,14 @@ export const calculateBoundingCircle = (horses: Horse[], width: number, height: 
   const radius = maxDist + padding;
 
   const circle = {
-    center: { x: centerX, y: centerY },
+    center: { x: centerCanvas.x, y: centerCanvas.y },
     radius,
   };
   
   trace('calculateBoundingCircle', 'Calculated circle', { 
     circle, 
-    boundingBox: { minX, maxX, minY, maxY },
+    centerWorld,
+    centerCanvas,
     maxDist,
     padding 
   });

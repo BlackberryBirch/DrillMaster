@@ -695,3 +695,4 @@ CREATE INDEX IF NOT EXISTS idx_share_links_drill_version ON share_links(drill_id
 6. **Embedding**: Allow embedding shared drills in other websites
 7. **Download Restrictions**: Control whether viewers can download the drill
 
+
