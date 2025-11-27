@@ -3,6 +3,7 @@ import { Horse, Point } from '../types';
 import { Frame } from '../types';
 import { pointToCanvas, canvasToPoint } from '../utils/arena';
 import { useDrillStore } from '../stores/drillStore';
+import { distributeHorsesEvenlyAroundCircle } from '../utils/horseDistribution';
 
 // Tracing configuration - set to false to disable all tracing
 const ENABLE_TRACING = false;
@@ -756,22 +757,6 @@ export function useGroupTransformations({
       return;
     }
 
-    const center = calculateGroupCenter(selectedHorses);
-    const centerCanvas = pointToCanvas(center, width, height);
-
-    // Calculate radius (distance from center to farthest horse)
-    let maxDist = 0;
-    selectedHorses.forEach((horse) => {
-      const horseCanvas = pointToCanvas(horse.position, width, height);
-      const dx = horseCanvas.x - centerCanvas.x;
-      const dy = horseCanvas.y - centerCanvas.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      maxDist = Math.max(maxDist, dist);
-    });
-
-    // Add padding
-    const targetRadius = maxDist;
-
     // First restore all horses to their initial positions (skip history)
     const initialPositions = new Map<string, Point>();
     selectedHorses.forEach((horse) => {
@@ -785,73 +770,36 @@ export function useGroupTransformations({
     const frameAfterRestore = useDrillStore.getState().getCurrentFrame();
     if (!frameAfterRestore) return;
 
-    // Distribute horses to edge while preserving their polar angles
+    // Use the centralized distribution function from horseDistribution module
+    // This function works in world coordinates (meters), so we use the horses directly
+    const distributedHorses = distributeHorsesEvenlyAroundCircle(selectedHorses, false);
+
+    // Convert results to updates map
     const updates = new Map<string, Partial<Horse>>();
     
-    selectedHorses.forEach((horse) => {
-      const initialPos = initialPositions.get(horse.id);
-      if (!initialPos) return;
-
-      // Convert initial position to canvas coordinates
-      const initialCanvas = pointToCanvas(initialPos, width, height);
-      
-      // Calculate polar coordinates (angle and distance from center)
-      const dx = initialCanvas.x - centerCanvas.x;
-      const dy = initialCanvas.y - centerCanvas.y;
-      const polarAngle = Math.atan2(dy, dx);
-      
-      // Calculate position on circle edge using preserved polar angle
-      const newCanvasX = centerCanvas.x + targetRadius * Math.cos(polarAngle);
-      const newCanvasY = centerCanvas.y + targetRadius * Math.sin(polarAngle);
-      
-      // Convert to normalized
-      const newPos = canvasToPoint(newCanvasX, newCanvasY, width, height);
-      
-      // Calculate both tangential directions (perpendicular to radius)
-      const clockwiseDirection = polarAngle + Math.PI / 2;  // Clockwise
-      const counterclockwiseDirection = polarAngle - Math.PI / 2;  // Counterclockwise
-      
-      // Get the horse's current direction
-      const currentDirection = horse.direction || 0;
-      
-      // Normalize angles to [0, 2π] for comparison
-      const normalizeAngle = (angle: number): number => {
-        let normalized = angle;
-        while (normalized < 0) normalized += 2 * Math.PI;
-        while (normalized >= 2 * Math.PI) normalized -= 2 * Math.PI;
-        return normalized;
-      };
-      
-      const currentNorm = normalizeAngle(currentDirection);
-      const clockwiseNorm = normalizeAngle(clockwiseDirection);
-      const counterclockwiseNorm = normalizeAngle(counterclockwiseDirection);
-      
-      // Calculate angular distances (handling wraparound)
-      const distToClockwise = Math.min(
-        Math.abs(currentNorm - clockwiseNorm),
-        2 * Math.PI - Math.abs(currentNorm - clockwiseNorm)
-      );
-      const distToCounterclockwise = Math.min(
-        Math.abs(currentNorm - counterclockwiseNorm),
-        2 * Math.PI - Math.abs(currentNorm - counterclockwiseNorm)
-      );
-      
-      // Choose the direction that's closer to the current orientation
-      const tangentialDirection = distToClockwise < distToCounterclockwise
-        ? clockwiseDirection
-        : counterclockwiseDirection;
-      
+    // Handle single horse case (distribution function requires at least 2 horses)
+    if (selectedHorses.length === 1) {
+      // For a single horse, just update it to maintain the same position/direction
+      // This preserves the old behavior where single horse distribution was a no-op
+      const horse = selectedHorses[0];
       updates.set(horse.id, {
-        position: newPos,
-        direction: tangentialDirection,
+        position: horse.position,
+        direction: horse.direction || 0,
       });
-    });
+    } else {
+      // For multiple horses, use the distribution results
+      distributedHorses.forEach((result, horseId) => {
+        updates.set(horseId, {
+          position: result.position,
+          direction: result.direction,
+        });
+      });
+    }
 
     // Batch update with history
     trace('handleRadialDistribute', 'Applying batch update', {
       frameId: frameAfterRestore.id,
       updateCount: updates.size,
-      targetRadius
     });
     
     batchUpdateHorsesInFrame(frameAfterRestore.id, updates);
@@ -860,7 +808,7 @@ export function useGroupTransformations({
     groupScaleStateRef.current.initialRadius = 0;
     
     trace('handleRadialDistribute', 'Radial distribution complete');
-  }, [currentFrame, selectedHorses, width, height, updateHorseInFrame, batchUpdateHorsesInFrame]);
+  }, [currentFrame, selectedHorses, updateHorseInFrame, batchUpdateHorsesInFrame]);
 
   // Track previous horse IDs to detect actual selection changes (separate refs for rotation and scale)
   const previousRotationHorseIdsRef = React.useRef<string>('');
