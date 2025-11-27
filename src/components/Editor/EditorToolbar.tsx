@@ -4,6 +4,41 @@ import { createHorse } from '../../types';
 import { generateId } from '../../utils/uuid';
 import FrameCounter from './FrameCounter';
 
+const iconStrokeProps = {
+  stroke: 'currentColor',
+  strokeWidth: 1.8,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+};
+
+const AlignHorizontalIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4"
+    role="img"
+    aria-hidden="true"
+  >
+    <line x1="12" y1="3" x2="12" y2="21" {...iconStrokeProps} />
+    <line x1="6" y1="7" x2="18" y2="7" {...iconStrokeProps} />
+    <line x1="8" y1="12" x2="16" y2="12" {...iconStrokeProps} />
+    <line x1="6" y1="17" x2="18" y2="17" {...iconStrokeProps} />
+  </svg>
+);
+
+const AlignVerticalIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4"
+    role="img"
+    aria-hidden="true"
+  >
+    <line x1="3" y1="12" x2="21" y2="12" {...iconStrokeProps} />
+    <line x1="7" y1="6" x2="7" y2="18" {...iconStrokeProps} />
+    <line x1="12" y1="8" x2="12" y2="16" {...iconStrokeProps} />
+    <line x1="17" y1="6" x2="17" y2="18" {...iconStrokeProps} />
+  </svg>
+);
+
 export default function EditorToolbar() {
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
   const toggleDirectionArrows = useEditorStore((state) => state.toggleDirectionArrows);
@@ -72,11 +107,12 @@ export default function EditorToolbar() {
                 alignHorsesVertically(currentFrame.id, selectedHorseIds);
               }
             }}
-            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
             title="Align horizontally (same X position) - Ctrl/Cmd + Shift + H"
             disabled={selectedHorseIds.length < 2}
+            aria-label="Align horizontally (same X position)"
           >
-            Align H
+            <AlignHorizontalIcon />
           </button>
           
           <button
@@ -86,11 +122,12 @@ export default function EditorToolbar() {
                 alignHorsesHorizontally(currentFrame.id, selectedHorseIds);
               }
             }}
-            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
             title="Align vertically (same Y position) - Ctrl/Cmd + Shift + V"
             disabled={selectedHorseIds.length < 2}
+            aria-label="Align vertically (same Y position)"
           >
-            Align V
+            <AlignVerticalIcon />
           </button>
           
           {selectedHorseIds.length >= 3 && (
