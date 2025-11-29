@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { useDrillStore } from '../../stores/drillStore';
 import { CloudStorageAdapter } from '../../utils/cloudStorage';
 import { JSONFileFormatAdapter } from '../../utils/fileIO';
 import AuthModal from '../Auth/AuthModal';
@@ -22,10 +23,12 @@ export default function Home() {
   const user = useAuthStore((state) => state.user);
   const loading = useAuthStore((state) => state.loading);
   const signOut = useAuthStore((state) => state.signOut);
+  const createNewDrill = useDrillStore((state) => state.createNewDrill);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [drills, setDrills] = useState<DrillListItem[]>([]);
   const [drillsLoading, setDrillsLoading] = useState(false);
   const [drillsError, setDrillsError] = useState<string | null>(null);
+  const [isCreatingDrill, setIsCreatingDrill] = useState(false);
 
   useEffect(() => {
     const loadDrills = async () => {
@@ -53,8 +56,44 @@ export default function Home() {
     loadDrills();
   }, [user]);
 
-  const handleCreateNew = () => {
-    navigate('/drill/new');
+  const handleCreateNew = async () => {
+    if (isCreatingDrill) return; // Prevent multiple clicks
+    
+    // Ask the user for the drill name
+    const drillName = prompt('Enter a name for your new drill:', 'New Drill');
+    if (!drillName || drillName.trim() === '') {
+      // User cancelled or entered empty name
+      return;
+    }
+    
+    setIsCreatingDrill(true);
+    try {
+      // Create the new drill in the store with the user-provided name
+      createNewDrill(drillName.trim());
+      
+      // Get the drill from the store
+      const newDrill = useDrillStore.getState().drill;
+      if (!newDrill) {
+        throw new Error('Failed to create drill');
+      }
+      
+      // Save to cloud storage if user is authenticated
+      if (user) {
+        const result = await cloudAdapter.saveDrillToCloud(newDrill);
+        if (result.error) {
+          console.error('Failed to save new drill to cloud:', result.error);
+          // Continue anyway - user can work locally and save later
+        }
+      }
+      
+      // Navigate to the editor with the drill ID
+      navigate(`/drill/${newDrill.id}`);
+    } catch (error) {
+      console.error('Error creating new drill:', error);
+      alert(`Failed to create new drill: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsCreatingDrill(false);
+    }
   };
 
   const handleDrillClick = (drillId: string) => {
@@ -176,9 +215,10 @@ export default function Home() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Your Drills</h2>
               <button
                 onClick={handleCreateNew}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                disabled={isCreatingDrill}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                + Create New Drill
+                {isCreatingDrill ? 'Creating...' : '+ Create New Drill'}
               </button>
             </div>
 
@@ -197,9 +237,10 @@ export default function Home() {
                 </p>
                 <button
                   onClick={handleCreateNew}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  disabled={isCreatingDrill}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create Your First Drill
+                  {isCreatingDrill ? 'Creating...' : 'Create Your First Drill'}
                 </button>
               </div>
             ) : (

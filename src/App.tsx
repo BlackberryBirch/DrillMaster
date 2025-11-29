@@ -19,11 +19,9 @@ function DrillEditor() {
   const navigate = useNavigate();
   const drill = useDrillStore((state) => state.drill);
   const setDrill = useDrillStore((state) => state.setDrill);
-  const createNewDrill = useDrillStore((state) => state.createNewDrill);
   const user = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const isLoadingRef = useRef(false);
   const loadedDrillIdRef = useRef<string | null>(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -31,7 +29,7 @@ function DrillEditor() {
 
   // Enable auto-save when user is authenticated and drill exists
   const { isSaving, hasUnsavedChanges } = useAutoSave({
-    enabled: !!user && !!drill && drillId !== 'new',
+    enabled: !!user && !!drill && !!drillId,
     interval: 30000, // Save every 30 seconds
     debounceMs: 5000, // Save 5 seconds after last change
   });
@@ -41,7 +39,7 @@ function DrillEditor() {
     let isSavingOnClose = false;
 
     const saveOnClose = async () => {
-      if (isSavingOnClose || !user || !drill || !drillId || drillId === 'new') {
+      if (isSavingOnClose || !user || !drill || !drillId) {
         return;
       }
 
@@ -90,57 +88,56 @@ function DrillEditor() {
 
   useEffect(() => {
     const loadDrill = async () => {
-      if (drillId === 'new') {
-        // Create a new drill
-        createNewDrill('New Drill');
-        loadedDrillIdRef.current = null;
-        // The URL will be updated when the drill gets an ID
+      if (!drillId) {
         return;
       }
 
-      if (drillId) {
-        // Skip if we're already loading this drill
-        if (isLoadingRef.current && loadedDrillIdRef.current === drillId) {
-          return;
-        }
+      // Skip if we're already loading this drill
+      if (isLoadingRef.current && loadedDrillIdRef.current === drillId) {
+        return;
+      }
 
-        // Load drill from cloud storage
-        isLoadingRef.current = true;
-        loadedDrillIdRef.current = drillId;
-        setLoading(true);
-        setError(null);
-        try {
-          const result = await cloudAdapter.loadDrillFromCloud(drillId);
-          if (result.error) {
-            setError(result.error.message);
-            // If drill not found, redirect to home
-            navigate('/', { replace: true });
-            loadedDrillIdRef.current = null;
-          } else if (result.data) {
-            // Only set drill if it matches the current URL
-            if (result.data.id === drillId) {
-              setDrill(result.data, false, false);
-              // Get the database UUID for version history
-              const dbResult = await drillService.getDrillByShortId(drillId);
-              if (dbResult.data) {
-                setDatabaseDrillId(dbResult.data.id);
-              }
-            } else {
-              // Drill ID mismatch - this shouldn't happen, but handle it gracefully
-              console.warn(`Drill ID mismatch: URL has ${drillId}, but loaded drill has ${result.data.id}`);
-              setError('Drill ID mismatch');
-              navigate('/', { replace: true });
-              loadedDrillIdRef.current = null;
-            }
-          }
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to load drill');
+      // Skip if the drill is already in the store and matches the drillId
+      if (drill && drill.id === drillId && loadedDrillIdRef.current === drillId) {
+        return;
+      }
+
+      // Load drill from cloud storage
+      isLoadingRef.current = true;
+      loadedDrillIdRef.current = drillId;
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await cloudAdapter.loadDrillFromCloud(drillId);
+        if (result.error) {
+          setError(result.error.message);
+          // If drill not found, redirect to home
           navigate('/', { replace: true });
           loadedDrillIdRef.current = null;
-        } finally {
-          setLoading(false);
-          isLoadingRef.current = false;
+        } else if (result.data) {
+          // Only set drill if it matches the current URL
+          if (result.data.id === drillId) {
+            setDrill(result.data, false, false);
+            // Get the database UUID for version history
+            const dbResult = await drillService.getDrillByShortId(drillId);
+            if (dbResult.data) {
+              setDatabaseDrillId(dbResult.data.id);
+            }
+          } else {
+            // Drill ID mismatch - this shouldn't happen, but handle it gracefully
+            console.warn(`Drill ID mismatch: URL has ${drillId}, but loaded drill has ${result.data.id}`);
+            setError('Drill ID mismatch');
+            navigate('/', { replace: true });
+            loadedDrillIdRef.current = null;
+          }
         }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load drill');
+        navigate('/', { replace: true });
+        loadedDrillIdRef.current = null;
+      } finally {
+        setLoading(false);
+        isLoadingRef.current = false;
       }
     };
 
@@ -148,42 +145,6 @@ function DrillEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drillId]); // Only depend on drillId to avoid infinite loops
 
-  // Automatically save new drills to cloud storage when created
-  useEffect(() => {
-    const saveNewDrill = async () => {
-      // Only save if:
-      // 1. User is authenticated
-      // 2. Drill exists
-      // 3. We're on the 'new' route (newly created drill)
-      // 4. Not already saving
-      if (!user || !drill || drillId !== 'new' || saving) {
-        return;
-      }
-
-      setSaving(true);
-      try {
-        const result = await cloudAdapter.saveDrillToCloud(drill);
-        if (result.error) {
-          console.error('Failed to save new drill to cloud:', result.error);
-          // Don't show error to user - they can still work on the drill locally
-          // The drill will be saved when they explicitly save it
-        } else if (result.data) {
-          // Drill saved successfully, URL will be updated by the next useEffect
-          console.log('New drill saved to cloud with ID:', result.data);
-        }
-      } catch (err) {
-        console.error('Error saving new drill to cloud:', err);
-      } finally {
-        setSaving(false);
-      }
-    };
-
-    // Only save if we have all required conditions
-    if (user && drill && drillId === 'new' && !saving) {
-      saveNewDrill();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drill?.id, drillId, user]); // Save when drill is created and user is authenticated
 
   // Update URL when drill is saved to cloud (drill.id changes)
   // But only if we're not currently loading a drill
@@ -198,12 +159,8 @@ function DrillEditor() {
       return;
     }
 
-    if (drill && drill.id && drillId && drillId !== 'new' && drillId !== drill.id) {
-      // Update URL if drill ID doesn't match URL (e.g., after saving)
-      navigate(`/drill/${drill.id}`, { replace: true });
-      loadedDrillIdRef.current = drill.id;
-    } else if (drill && drill.id && drillId === 'new') {
-      // New drill created, update URL with the ID
+    // Update URL if drill ID doesn't match URL (e.g., after saving)
+    if (drill && drill.id && drillId && drillId !== drill.id) {
       navigate(`/drill/${drill.id}`, { replace: true });
       loadedDrillIdRef.current = drill.id;
     }
@@ -213,7 +170,7 @@ function DrillEditor() {
   // Update database drill ID when drill changes (for version history)
   useEffect(() => {
     const updateDatabaseId = async () => {
-      if (drill && drill.id && drillId && drillId !== 'new') {
+      if (drill && drill.id && drillId) {
         const dbResult = await drillService.getDrillByShortId(drill.id);
         if (dbResult.data) {
           setDatabaseDrillId(dbResult.data.id);
@@ -232,13 +189,10 @@ function DrillEditor() {
     
     // Save it to update the main drill record
     if (user) {
-      setSaving(true);
       try {
         await cloudAdapter.saveDrillToCloud(restoredDrill);
       } catch (err) {
         console.error('Failed to save restored drill:', err);
-      } finally {
-        setSaving(false);
       }
     }
   };
