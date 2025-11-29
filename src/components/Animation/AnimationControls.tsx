@@ -42,6 +42,27 @@ export default function AnimationControls() {
     setCurrentTime(nextFrame.timestamp);
   };
 
+  // Helper function to find frame index from timestamp
+  const findFrameIndexFromTime = (time: number): number | null => {
+    if (!drill || drill.frames.length === 0) return null;
+    
+    for (let i = 0; i < drill.frames.length; i++) {
+      const frame = drill.frames[i];
+      const frameEndTime = frame.timestamp + frame.duration;
+      if (time >= frame.timestamp && time < frameEndTime) {
+        return i;
+      }
+    }
+    
+    // If time is at or beyond the last frame, return the last frame index
+    const totalDuration = drill.frames.reduce((sum, frame) => sum + frame.duration, 0);
+    if (time >= totalDuration && drill.frames.length > 0) {
+      return drill.frames.length - 1;
+    }
+    
+    return null;
+  };
+
   // Close speed popup when clicking outside or on the button again
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -149,8 +170,16 @@ export default function AnimationControls() {
             
             // Calculate total duration
             const totalDuration = drill.frames.reduce((sum, frame) => sum + frame.duration, 0);
-            const newTime = percentage * totalDuration;
-            setCurrentTime(Math.max(0, Math.min(totalDuration, newTime)));
+            const newTime = Math.max(0, Math.min(totalDuration, percentage * totalDuration));
+            setCurrentTime(newTime);
+            
+            // Update current frame index when playback is paused or stopped
+            if (state === 'paused' || state === 'stopped') {
+              const frameIndex = findFrameIndexFromTime(newTime);
+              if (frameIndex !== null) {
+                setCurrentFrame(frameIndex);
+              }
+            }
           }}
         >
           <div

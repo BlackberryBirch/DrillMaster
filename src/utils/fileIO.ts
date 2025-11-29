@@ -10,10 +10,16 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
   private readonly legacyVersion = '1.0.0'; // Old version with normalized coordinates
 
   serialize(drill: Drill): string {
+    // Regenerate frame timestamps before saving to ensure consistency
+    const framesWithRegeneratedTimestamps = drill.frames && drill.frames.length > 0
+      ? this.regenerateFrameTimestamps(drill.frames)
+      : drill.frames;
+    
     // Create a copy of the drill, but exclude the signed URL from audioTrack
     // Only save storagePath, not the temporary signed URL
     const drillToSave = {
       ...drill,
+      frames: framesWithRegeneratedTimestamps,
       metadata: {
         ...drill.metadata,
         createdAt: drill.metadata.createdAt,
@@ -35,6 +41,28 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
     };
 
     return JSON.stringify(file, null, 2);
+  }
+
+  /**
+   * Regenerates all frame timestamps based on their durations.
+   * The first frame always has timestamp 0, and each subsequent frame's
+   * timestamp is the sum of all previous frames' durations.
+   */
+  private regenerateFrameTimestamps(frames: Drill['frames']): Drill['frames'] {
+    if (frames.length === 0) return frames;
+    
+    return frames.map((frame, index) => {
+      if (index === 0) {
+        // First frame always starts at 0
+        return { ...frame, timestamp: 0 };
+      } else {
+        // Each subsequent frame's timestamp is the sum of all previous durations
+        const timestamp = frames
+          .slice(0, index)
+          .reduce((sum, prevFrame) => sum + prevFrame.duration, 0);
+        return { ...frame, timestamp };
+      }
+    });
   }
 
   /**
@@ -116,6 +144,14 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
     // Migrate old files with normalized coordinates to meters-based coordinates
     if (file.version === this.legacyVersion) {
       drill = this.migrateCoordinates(drill);
+    }
+
+    // Regenerate frame timestamps when loading to ensure consistency
+    if (drill.frames && drill.frames.length > 0) {
+      drill = {
+        ...drill,
+        frames: this.regenerateFrameTimestamps(drill.frames),
+      };
     }
 
     return drill;

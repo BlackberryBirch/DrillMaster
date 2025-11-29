@@ -8,6 +8,28 @@ import { storageService } from '../services/storageService';
 import { alignHorsesHorizontally, alignHorsesVertically } from '../utils/horseAlignment';
 import { distributeHorsesEvenly, distributeHorsesEvenlyAroundCircle } from '../utils/horseDistribution';
 
+/**
+ * Regenerates all frame timestamps based on their durations.
+ * The first frame always has timestamp 0, and each subsequent frame's
+ * timestamp is the sum of all previous frames' durations.
+ */
+function regenerateFrameTimestamps(frames: Frame[]): Frame[] {
+  if (frames.length === 0) return frames;
+  
+  return frames.map((frame, index) => {
+    if (index === 0) {
+      // First frame always starts at 0
+      return { ...frame, timestamp: 0 };
+    } else {
+      // Each subsequent frame's timestamp is the sum of all previous durations
+      const timestamp = frames
+        .slice(0, index)
+        .reduce((sum, prevFrame) => sum + prevFrame.duration, 0);
+      return { ...frame, timestamp };
+    }
+  });
+}
+
 interface DrillStore {
   drill: Drill | null;
   currentFrameIndex: number;
@@ -56,7 +78,17 @@ export const useDrillStore = create<DrillStore>()(
         currentIndex = Math.min(prevIndex, drill.frames.length - 1);
       }
     }
-    set({ drill, currentFrameIndex: currentIndex });
+    
+    // Regenerate frame timestamps when loading a drill
+    let drillToSet = drill;
+    if (drill && drill.frames && drill.frames.length > 0) {
+      drillToSet = {
+        ...drill,
+        frames: regenerateFrameTimestamps(drill.frames),
+      };
+    }
+    
+    set({ drill: drillToSet, currentFrameIndex: currentIndex });
     // Clear history when loading a new drill (but not during undo/redo)
     if (!skipHistoryClear) {
       useHistoryStore.getState().clear();
@@ -98,17 +130,17 @@ export const useDrillStore = create<DrillStore>()(
     // Update timestamps of subsequent frames
     const updatedFrames = [...drill.frames];
     updatedFrames.splice(frameIndex + 1, 0, newFrame);
-    updatedFrames.forEach((frame, index) => {
-      frame.index = index;
-      if (index > 0) {
-        frame.timestamp = updatedFrames[index - 1].timestamp + updatedFrames[index - 1].duration;
-      }
-    });
+    // Update indices and regenerate timestamps
+    const framesWithIndices = updatedFrames.map((frame, index) => ({
+      ...frame,
+      index,
+    }));
+    const finalFrames = regenerateFrameTimestamps(framesWithIndices);
 
     set({
       drill: {
         ...drill,
-        frames: updatedFrames,
+        frames: finalFrames,
       },
       currentFrameIndex: frameIndex + 1,
     });
@@ -125,20 +157,19 @@ export const useDrillStore = create<DrillStore>()(
     if (frameIndex === -1) return;
 
     const newFrames = drill.frames.filter((f) => f.id !== frameId);
-    // Reindex frames
-    newFrames.forEach((frame, index) => {
-      frame.index = index;
-      if (index > 0) {
-        frame.timestamp = newFrames[index - 1].timestamp + newFrames[index - 1].duration;
-      }
-    });
+    // Reindex frames and regenerate timestamps
+    const framesWithIndices = newFrames.map((frame, index) => ({
+      ...frame,
+      index,
+    }));
+    const finalFrames = regenerateFrameTimestamps(framesWithIndices);
 
     const newIndex = Math.min(get().currentFrameIndex, newFrames.length - 1);
 
     set({
       drill: {
         ...drill,
-        frames: newFrames,
+        frames: finalFrames,
       },
       currentFrameIndex: Math.max(0, newIndex),
     });
@@ -155,12 +186,23 @@ export const useDrillStore = create<DrillStore>()(
     const { drill } = get();
     if (!drill) return;
 
+    // Check if duration is being updated
+    const isDurationUpdate = 'duration' in updates;
+    
+    // Update the frame
+    const updatedFrames = drill.frames.map((frame) =>
+      frame.id === frameId ? { ...frame, ...updates } : frame
+    );
+    
+    // If duration was updated, regenerate all timestamps
+    const finalFrames = isDurationUpdate 
+      ? regenerateFrameTimestamps(updatedFrames)
+      : updatedFrames;
+
     set({
       drill: {
         ...drill,
-        frames: drill.frames.map((frame) =>
-          frame.id === frameId ? { ...frame, ...updates } : frame
-        ),
+        frames: finalFrames,
       },
     });
   },
