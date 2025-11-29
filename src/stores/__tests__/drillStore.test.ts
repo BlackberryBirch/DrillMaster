@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useDrillStore } from '../drillStore';
 import { createHorse, createDrill } from '../../types';
 import { generateId } from '../../utils/uuid';
+import { calculateGroupCenter } from '../../utils/groupCenter';
 
 describe('drillStore', () => {
   beforeEach(() => {
@@ -429,11 +430,8 @@ describe('drillStore', () => {
           const distributedFrame = useDrillStore.getState().getCurrentFrame();
           const distributedHorses = distributedFrame?.horses || [];
 
-          // Calculate center
-          const center = {
-            x: (horse1.position.x + horse2.position.x + horse3.position.x) / 3,
-            y: (horse1.position.y + horse2.position.y + horse3.position.y) / 3,
-          };
+          // Calculate center from distributed horses (they should be evenly distributed around this center)
+          const center = calculateGroupCenter(distributedHorses);
 
           // All horses should be at the same distance from center
           const distances = distributedHorses.map((h) => distanceFromCenter(h.position, center));
@@ -493,11 +491,8 @@ describe('drillStore', () => {
           const distributedFrame = useDrillStore.getState().getCurrentFrame();
           const distributedHorses = distributedFrame?.horses || [];
 
-          // Calculate center
-          const center = {
-            x: (horse1.position.x + horse2.position.x + horse3.position.x + horse4.position.x) / 4,
-            y: (horse1.position.y + horse2.position.y + horse3.position.y + horse4.position.y) / 4,
-          };
+          // Calculate center from distributed horses (they should be evenly distributed around this center)
+          const center = calculateGroupCenter(distributedHorses);
 
           // All horses should be at the same distance from center
           const distances = distributedHorses.map((h) => distanceFromCenter(h.position, center));
@@ -579,11 +574,8 @@ describe('drillStore', () => {
           const distributedFrame = useDrillStore.getState().getCurrentFrame();
           const distributedHorses = distributedFrame?.horses || [];
 
-          // Calculate actual center
-          const actualCenter = {
-            x: distributedHorses.reduce((sum, h) => sum + h.position.x, 0) / distributedHorses.length,
-            y: distributedHorses.reduce((sum, h) => sum + h.position.y, 0) / distributedHorses.length,
-          };
+          // Calculate actual center from distributed horses
+          const actualCenter = calculateGroupCenter(distributedHorses);
 
           // All horses should be at approximately the same distance from center
           const distances = distributedHorses.map((h) => distanceFromCenter(h.position, actualCenter));
@@ -647,11 +639,8 @@ describe('drillStore', () => {
           const distributedFrame = useDrillStore.getState().getCurrentFrame();
           const distributedHorses = distributedFrame?.horses || [];
 
-          // Calculate center
-          const center = {
-            x: (horse1.position.x + horse2.position.x + horse3.position.x) / 3,
-            y: (horse1.position.y + horse2.position.y + horse3.position.y) / 3,
-          };
+          // Calculate center from distributed horses (they should be evenly distributed around this center)
+          const center = calculateGroupCenter(distributedHorses);
 
           // All horses should be at the same distance from center
           const distances = distributedHorses.map((h) => distanceFromCenter(h.position, center));
@@ -761,11 +750,8 @@ describe('drillStore', () => {
         });
         expect(allSame).toBe(false); // Horses should have moved
 
-        // Verify they're evenly distributed
-        const center = {
-          x: distributedHorses.reduce((sum, h) => sum + h.position.x, 0) / distributedHorses.length,
-          y: distributedHorses.reduce((sum, h) => sum + h.position.y, 0) / distributedHorses.length,
-        };
+          // Verify they're evenly distributed
+          const center = calculateGroupCenter(distributedHorses);
 
         // All horses should be at the same distance from center
         const distances = distributedHorses.map((h) => distanceFromCenter(h.position, center));

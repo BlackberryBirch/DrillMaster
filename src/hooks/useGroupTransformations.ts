@@ -4,6 +4,7 @@ import { Frame } from '../types';
 import { pointToCanvas, canvasToPoint } from '../utils/arena';
 import { useDrillStore } from '../stores/drillStore';
 import { distributeHorsesEvenlyAroundCircle } from '../utils/horseDistribution';
+import { calculateGroupCenter } from '../utils/groupCenter';
 
 // Tracing configuration - set to false to disable all tracing
 const ENABLE_TRACING = false;
@@ -38,33 +39,6 @@ interface UseGroupTransformationsParams {
   batchUpdateHorsesInFrame: (frameId: string, updates: Map<string, Partial<Horse>>) => void;
 }
 
-/**
- * Calculate the center point of a group of horses
- */
-export const calculateGroupCenter = (horses: Horse[]): Point => {
-  trace('calculateGroupCenter', 'Called', { horseCount: horses.length });
-  
-  if (horses.length === 0) {
-    trace('calculateGroupCenter', 'Empty horses array, returning (0,0)');
-    return { x: 0, y: 0 };
-  }
-  
-  let sumX = 0;
-  let sumY = 0;
-  horses.forEach((horse) => {
-    sumX += horse.position.x;
-    sumY += horse.position.y;
-  });
-  
-  const center = {
-    x: sumX / horses.length,
-    y: sumY / horses.length,
-  };
-  
-  trace('calculateGroupCenter', 'Calculated center', { center, sumX, sumY, horseCount: horses.length });
-  return center;
-};
-
 export interface BoundingCircle {
   center: { x: number; y: number };
   radius: number;
@@ -82,7 +56,7 @@ export const calculateBoundingCircle = (horses: Horse[], width: number, height: 
     return { center: { x: 0, y: 0 }, radius: 0 };
   }
 
-  // Use the same center calculation as rotation (average of positions in world coordinates)
+  // Use the same center calculation as rotation (minimal enclosing circle in world coordinates)
   const centerWorld = calculateGroupCenter(horses);
   
   // Convert center to canvas coordinates

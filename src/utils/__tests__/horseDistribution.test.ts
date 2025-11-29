@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { distributeHorsesEvenly, distributeHorsesEvenlyAroundCircle } from '../horseDistribution';
+import { calculateGroupCenter } from '../groupCenter';
 import { createHorse, Horse } from '../../types';
 import { generateId } from '../uuid';
 
@@ -101,11 +102,8 @@ describe('horseDistribution', () => {
 
       const result = distributeHorsesEvenlyAroundCircle([horse1, horse2]);
 
-      // Calculate center
-      const center = {
-        x: (horse1.position.x + horse2.position.x) / 2,
-        y: (horse1.position.y + horse2.position.y) / 2,
-      };
+      // Calculate center using the same method as the distribution function
+      const center = calculateGroupCenter([horse1, horse2]);
 
       // Calculate radius (should be half the distance between original positions)
       const originalDist = Math.sqrt(
@@ -133,11 +131,8 @@ describe('horseDistribution', () => {
 
       const result = distributeHorsesEvenlyAroundCircle([horse1, horse2, horse3]);
 
-      // Calculate center
-      const center = {
-        x: (horse1.position.x + horse2.position.x + horse3.position.x) / 3,
-        y: (horse1.position.y + horse2.position.y + horse3.position.y) / 3,
-      };
+      // Calculate center using the same method as the distribution function
+      const center = calculateGroupCenter([horse1, horse2, horse3]);
 
       // All horses should be at the same distance from center
       const distances = Array.from(result.values()).map((h) => distanceFromCenter(h.position, center));
@@ -168,11 +163,8 @@ describe('horseDistribution', () => {
 
       const result = distributeHorsesEvenlyAroundCircle([horse1, horse2, horse3, horse4]);
 
-      // Calculate center
-      const center = {
-        x: (horse1.position.x + horse2.position.x + horse3.position.x + horse4.position.x) / 4,
-        y: (horse1.position.y + horse2.position.y + horse3.position.y + horse4.position.y) / 4,
-      };
+      // Calculate center using the same method as the distribution function
+      const center = calculateGroupCenter([horse1, horse2, horse3, horse4]);
 
       // All horses should be at the same distance from center
       const distances = Array.from(result.values()).map((h) => distanceFromCenter(h.position, center));
@@ -230,10 +222,8 @@ describe('horseDistribution', () => {
       const result = distributeHorsesEvenlyAroundCircle(horses, false);
 
       // Calculate expected Step 2 positions (preserve polar angles, snap to circle radius)
-      const center = {
-        x: horses.reduce((sum, h) => sum + h.position.x, 0) / horses.length,
-        y: horses.reduce((sum, h) => sum + h.position.y, 0) / horses.length,
-      };
+      // Use the same center calculation as the distribution function
+      const center = calculateGroupCenter(horses);
       let maxDist = 0;
       horses.forEach((horse) => {
         const dx = horse.position.x - center.x;

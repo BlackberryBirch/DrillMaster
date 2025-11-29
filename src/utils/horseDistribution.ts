@@ -1,5 +1,5 @@
 import { Horse, Point } from '../types';
-import { calculateGroupCenter } from '../hooks/useGroupTransformations';
+import { calculateGroupCenter } from './groupCenter';
 
 /**
  * Calculates Euclidean distance between two points

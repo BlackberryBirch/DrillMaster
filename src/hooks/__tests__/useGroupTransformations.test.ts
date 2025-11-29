@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useGroupTransformations, calculateGroupCenter } from '../useGroupTransformations';
+import { useGroupTransformations } from '../useGroupTransformations';
+import { calculateGroupCenter } from '../../utils/groupCenter';
 import { createHorse, createFrame, Horse, Frame } from '../../types';
 import { generateId } from '../../utils/uuid';
 import { useDrillStore } from '../../stores/drillStore';
@@ -36,15 +37,25 @@ describe('useGroupTransformations', () => {
       expect(center).toEqual({ x: 0.5, y: 0.5 });
     });
 
-    it('should calculate center of multiple horses', () => {
+    it('should return midpoint for two horses', () => {
       const horses = [
-        createHorse('horse1', 1, { x: 0.2, y: 0.3 }),
-        createHorse('horse2', 2, { x: 0.6, y: 0.7 }),
-        createHorse('horse3', 3, { x: 0.4, y: 0.5 }),
+        createHorse('horse1', 1, { x: 0.2, y: 0.4 }),
+        createHorse('horse2', 2, { x: 0.6, y: 0.4 }),
       ];
       const center = calculateGroupCenter(horses);
       expect(center.x).toBeCloseTo(0.4, 5);
-      expect(center.y).toBeCloseTo(0.5, 5);
+      expect(center.y).toBeCloseTo(0.4, 5);
+    });
+
+    it('should calculate circumcenter for three non-collinear horses', () => {
+      const horses = [
+        createHorse('horse1', 1, { x: 0, y: 0 }),
+        createHorse('horse2', 2, { x: 2, y: 0 }),
+        createHorse('horse3', 3, { x: 0, y: 2 }),
+      ];
+      const center = calculateGroupCenter(horses);
+      expect(center.x).toBeCloseTo(1, 5);
+      expect(center.y).toBeCloseTo(1, 5);
     });
 
     it('should return (0, 0) for empty array', () => {
