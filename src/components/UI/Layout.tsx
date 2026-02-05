@@ -7,10 +7,11 @@ import PropertiesPanel from './PropertiesPanel';
 
 interface LayoutProps {
   onOpenVersionHistory?: () => void;
+  onSaveVersion?: () => void;
   isSaving?: boolean;
 }
 
-export default function Layout({ onOpenVersionHistory, isSaving = false }: LayoutProps) {
+export default function Layout({ onOpenVersionHistory, onSaveVersion, isSaving = false }: LayoutProps) {
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(false);
 
   return (
@@ -20,6 +21,7 @@ export default function Layout({ onOpenVersionHistory, isSaving = false }: Layou
         onTogglePropertiesPanel={() => setShowPropertiesPanel(!showPropertiesPanel)}
         showPropertiesPanel={showPropertiesPanel}
         onOpenVersionHistory={onOpenVersionHistory}
+        onSaveVersion={onSaveVersion}
         isSaving={isSaving}
       />
 

@@ -396,6 +396,7 @@ describe('DrillService', () => {
         version_number: 1,
         drill_data: testDrill,
         name: 'Test Drill',
+        version_label: null,
         audio_url: null,
         audio_filename: null,
         created_at: new Date().toISOString(),
@@ -440,6 +441,7 @@ describe('DrillService', () => {
         version_number: 1,
         drill_data: testDrill,
         name: 'Test Drill',
+        version_label: null,
         audio_url: null,
         audio_filename: null,
         created_at: recentVersion.created_at,
@@ -456,6 +458,52 @@ describe('DrillService', () => {
 
       expect(result.error).toBeNull();
       expect(result.data).toEqual(updatedVersion);
+    });
+
+    it('should always create new version when versionLabel is provided (named save)', async () => {
+      const testDrill = createDrill('test-id', 'Test Drill');
+      (supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      // getLatestVersion would return a recent version, but we pass versionLabel so we skip update path
+      const mockVersion = {
+        id: 'version-id',
+        drill_id: 'drill-id',
+        user_id: mockUser.id,
+        version_number: 1,
+        drill_data: testDrill,
+        name: 'Test Drill',
+        version_label: null,
+        audio_url: null,
+        audio_filename: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // First maybeSingle: getLatestVersion (for createNewVersion's getNextVersionNumber is not used for first insert)
+      mockQueryBuilder.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'version-id', version_number: 1, created_at: new Date().toISOString(), version_label: null },
+        error: null,
+      });
+      mockQueryBuilder.maybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: null,
+      });
+
+      mockQueryBuilder.single.mockResolvedValue({
+        data: { ...mockVersion, version_number: 2 },
+        error: null,
+      });
+
+      const result = await drillService.createDrillVersion('drill-id', testDrill, null, null, 'My named save');
+
+      expect(result.error).toBeNull();
+      expect(result.data).not.toBeNull();
+      // Should have called insert (new version), not update
+      expect(mockQueryBuilder.insert).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).not.toHaveBeenCalled();
     });
   });
 
@@ -474,6 +522,7 @@ describe('DrillService', () => {
           version_number: 2,
           drill_data: createDrill('test-id', 'Test Drill'),
           name: 'Test Drill',
+          version_label: null,
           audio_url: null,
           audio_filename: null,
           created_at: new Date().toISOString(),
@@ -486,6 +535,7 @@ describe('DrillService', () => {
           version_number: 1,
           drill_data: createDrill('test-id', 'Test Drill'),
           name: 'Test Drill',
+          version_label: null,
           audio_url: null,
           audio_filename: null,
           created_at: new Date().toISOString(),
@@ -520,6 +570,7 @@ describe('DrillService', () => {
         version_number: 1,
         drill_data: createDrill('test-id', 'Test Drill'),
         name: 'Test Drill',
+        version_label: null,
         audio_url: null,
         audio_filename: null,
         created_at: new Date().toISOString(),
@@ -600,6 +651,7 @@ describe('DrillService', () => {
         version_number: 1,
         drill_data: testDrill,
         name: 'Test Drill',
+        version_label: null,
         audio_url: null,
         audio_filename: null,
         created_at: new Date().toISOString(),
@@ -669,6 +721,7 @@ describe('DrillService', () => {
         version_number: 1,
         drill_data: testDrill,
         name: 'Test Drill',
+        version_label: null,
         audio_url: null,
         audio_filename: null,
         created_at: new Date().toISOString(),
@@ -710,6 +763,7 @@ describe('DrillService', () => {
         version_number: 1,
         drill_data: testDrill,
         name: 'Test Drill',
+        version_label: null,
         audio_url: 'https://example.com/audio.mp3',
         audio_filename: 'audio.mp3',
         created_at: new Date().toISOString(),
@@ -743,6 +797,7 @@ describe('DrillService', () => {
         version_number: 1,
         drill_data: testDrill,
         name: 'Test Drill',
+        version_label: null,
         audio_url: 'user-id/drill-id/timestamp.mp3',
         audio_filename: 'audio.mp3',
         created_at: new Date().toISOString(),

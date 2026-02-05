@@ -11,9 +11,12 @@ interface VersionHistoryProps {
   isOpen: boolean;
   onClose: () => void;
   onRestore: (drill: Drill) => void;
+  /** When false (default), only named versions are shown. When true, auto-saved versions are included. */
+  showAutoSavedVersions?: boolean;
+  onShowAutoSavedVersionsChange?: (value: boolean) => void;
 }
 
-export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: VersionHistoryProps) {
+export default function VersionHistory({ drillId, isOpen, onClose, onRestore, showAutoSavedVersions = false, onShowAutoSavedVersionsChange }: VersionHistoryProps) {
   const [versions, setVersions] = useState<DrillVersionRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,11 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: 
       loadVersions();
     }
   }, [isOpen, drillId, loadVersions]);
+
+  // When showAutoSavedVersions is false, show only named versions (version_label set)
+  const displayedVersions = showAutoSavedVersions
+    ? versions
+    : versions.filter((v) => v.version_label != null && v.version_label !== '');
 
   const handleRestore = async (version: DrillVersionRecord) => {
     if (!confirm(`Are you sure you want to restore version ${version.version_number}? This will replace your current drill.`)) {
@@ -143,15 +151,30 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: 
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Version History</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Version History</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          {onShowAutoSavedVersionsChange && (
+            <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showAutoSavedVersions}
+                onChange={(e) => onShowAutoSavedVersionsChange(e.target.checked)}
+                className="rounded border-gray-400 dark:border-gray-500 text-blue-600 focus:ring-blue-500"
+                title="Include auto-saved versions in history"
+                aria-label="Show auto-saved versions"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">Show auto-saved versions</span>
+            </label>
+          )}
         </div>
 
         {/* Content */}
@@ -164,33 +187,44 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore }: 
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <p className="text-red-800 dark:text-red-200">{error}</p>
             </div>
-          ) : versions.length === 0 ? (
+          ) : displayedVersions.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-600 dark:text-gray-400">No version history available</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                {versions.length === 0
+                  ? 'No version history available'
+                  : 'No named versions. Enable "Show auto-saved" to see all versions.'}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {versions.map((version) => (
+              {displayedVersions.map((version) => (
                 <div
                   key={version.id}
                   className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
                   <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">
-                          Version {version.version_number}
-                        </span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {format(new Date(version.updated_at), 'MMM d, yyyy h:mm a')}
+                    <div className="flex-1 min-w-0 pr-4">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          {version.version_label ? (
+                            <>
+                              <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                {version.version_label}
+                              </span>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {format(new Date(version.updated_at), 'MMM d, yyyy h:mm a')}
+                              </span>
+                            </>
+                          ) : (
+                          <span className="text-sm font-semibold italic text-gray-900 dark:text-gray-100">
+                            Autosave {format(new Date(version.updated_at), 'MMM d, yyyy h:mm a')}
+                          </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0">
+                          {version.drill_data.frames.length} frame{version.drill_data.frames.length !== 1 ? 's' : ''}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {version.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        {version.drill_data.frames.length} frame{version.drill_data.frames.length !== 1 ? 's' : ''}
-                      </p>
                     </div>
                     <div className="flex gap-2">
                       <button

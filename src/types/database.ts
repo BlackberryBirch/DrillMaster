@@ -40,6 +40,8 @@ export interface DrillVersionRecord {
   version_number: number;
   drill_data: Drill;
   name: string;
+  /** User-given name for this version (e.g. "Before competition"). When set, this version is never combined with auto-saves. */
+  version_label: string | null;
   audio_url: string | null;
   audio_filename: string | null;
   created_at: string;

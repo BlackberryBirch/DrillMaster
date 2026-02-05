@@ -84,10 +84,10 @@ export class DrillService {
   private async getLatestVersion(
     drillId: string,
     userId: string
-  ): Promise<{ data: { id: string; version_number: number; created_at: string } | null; error: Error | null }> {
+  ): Promise<{ data: { id: string; version_number: number; created_at: string; version_label: string | null } | null; error: Error | null }> {
     const { data, error } = await supabase
       .from('drill_versions')
-      .select('id, version_number, created_at')
+      .select('id, version_number, created_at, version_label')
       .eq('drill_id', drillId)
       .eq('user_id', userId)
       .order('version_number', { ascending: false })
@@ -102,10 +102,15 @@ export class DrillService {
   }
 
   /**
-   * Check if existing version should be updated based on age
+   * Check if existing version should be updated based on age.
+   * Named versions (version_label set) are never updated by auto-save.
    */
-  private shouldUpdateExistingVersion(latestVersion: { created_at: string } | null): boolean {
+  private shouldUpdateExistingVersion(latestVersion: { created_at: string; version_label?: string | null } | null): boolean {
     if (!latestVersion || !latestVersion.created_at) {
+      return false;
+    }
+    // Never update a version that has a user-given name (explicit save)
+    if (latestVersion.version_label != null && latestVersion.version_label !== '') {
       return false;
     }
 
@@ -193,25 +198,28 @@ export class DrillService {
     initialVersionNumber: number,
     drill: Drill,
     audioUrl?: string | null,
-    audioFilename?: string | null
+    audioFilename?: string | null,
+    versionLabel?: string | null
   ): Promise<DatabaseResult<DrillVersionRecord>> {
     let versionNumber = initialVersionNumber;
     const serializedDrill = this.serializeDrill(drill);
     const now = new Date().toISOString();
+    const insertPayload = {
+      drill_id: drillId,
+      user_id: userId,
+      version_number: versionNumber,
+      drill_data: serializedDrill,
+      name: drill.name,
+      version_label: versionLabel || null,
+      audio_url: audioUrl || null,
+      audio_filename: audioFilename || null,
+      updated_at: now,
+    };
 
     // Try inserting with the initial version number
     const { data, error } = await supabase
       .from('drill_versions')
-      .insert({
-        drill_id: drillId,
-        user_id: userId,
-        version_number: versionNumber,
-        drill_data: serializedDrill,
-        name: drill.name,
-        audio_url: audioUrl || null,
-        audio_filename: audioFilename || null,
-        updated_at: now,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
@@ -226,16 +234,7 @@ export class DrillService {
       // Retry insert
       const { data: retryData, error: retryError } = await supabase
         .from('drill_versions')
-        .insert({
-          drill_id: drillId,
-          user_id: userId,
-          version_number: versionNumber,
-          drill_data: serializedDrill,
-          name: drill.name,
-          audio_url: audioUrl || null,
-          audio_filename: audioFilename || null,
-          updated_at: now,
-        })
+        .insert({ ...insertPayload, version_number: versionNumber })
         .select()
         .single();
 
@@ -265,7 +264,8 @@ export class DrillService {
     userId: string,
     drill: Drill,
     audioUrl?: string | null,
-    audioFilename?: string | null
+    audioFilename?: string | null,
+    versionLabel?: string | null
   ): Promise<DatabaseResult<DrillVersionRecord>> {
     const latestVersion = await this.getLatestVersion(drillId, userId);
     
@@ -286,7 +286,7 @@ export class DrillService {
     const nextVersion = await this.getNextVersionNumber(drillId, userId);
     console.log(`[DrillService] Creating new version ${nextVersion} for drill ${drillId} (${drill.name})`);
 
-    return this.insertVersionWithRetry(drillId, userId, nextVersion, drill, audioUrl, audioFilename);
+    return this.insertVersionWithRetry(drillId, userId, nextVersion, drill, audioUrl, audioFilename, versionLabel);
   }
   /**
    * Get all drills for the current user
@@ -491,18 +491,26 @@ export class DrillService {
   /**
    * Create or update a version of a drill
    * Creates a new version if the latest version is more than 15 minutes old,
-   * otherwise updates the current version
+   * or if the latest version has a version_label (named save), or if versionLabel is provided.
+   * Otherwise updates the current auto-saved version.
    */
   async createDrillVersion(
     drillId: string,
     drill: Drill,
     audioUrl?: string | null,
-    audioFilename?: string | null
+    audioFilename?: string | null,
+    versionLabel?: string | null
   ): Promise<DatabaseResult<DrillVersionRecord>> {
     return this.wrapDatabaseOperation(async () => {
       const authResult = await this.ensureAuthenticated();
       if (authResult.error) {
         return { data: null, error: authResult.error };
+      }
+
+      // Explicit named save: always create a new version, never update
+      if (versionLabel != null && versionLabel.trim() !== '') {
+        console.log(`[DrillService] Creating named version "${versionLabel}" for drill ${drillId} (${drill.name})`);
+        return this.createNewVersion(drillId, authResult.user.id, drill, audioUrl, audioFilename, versionLabel.trim());
       }
 
       // Get the latest version
@@ -531,7 +539,7 @@ export class DrillService {
           console.log(
             `[DrillService] Update returned no data, falling back to creating new version for drill ${drillId}`
           );
-          return this.createNewVersion(drillId, authResult.user.id, drill, audioUrl, audioFilename);
+          return this.createNewVersion(drillId, authResult.user.id, drill, audioUrl, audioFilename, null);
         }
 
         console.log(
@@ -541,7 +549,7 @@ export class DrillService {
       }
 
       // Create a new version
-      return this.createNewVersion(drillId, authResult.user.id, drill, audioUrl, audioFilename);
+      return this.createNewVersion(drillId, authResult.user.id, drill, audioUrl, audioFilename, null);
     }, 'create drill version');
   }
 

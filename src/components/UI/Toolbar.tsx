@@ -10,10 +10,11 @@ interface ToolbarProps {
   onTogglePropertiesPanel?: () => void;
   showPropertiesPanel?: boolean;
   onOpenVersionHistory?: () => void;
+  onSaveVersion?: () => void;
   isSaving?: boolean;
 }
 
-export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel = false, onOpenVersionHistory, isSaving = false }: ToolbarProps) {
+export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel = false, onOpenVersionHistory, onSaveVersion, isSaving = false }: ToolbarProps) {
   const navigate = useNavigate();
   const drill = useDrillStore((state) => state.drill);
   const user = useAuthStore((state) => state.user);
@@ -79,14 +80,27 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
           ⚙️ Properties
         </button>
       )}
-      {onOpenVersionHistory && user && drill && (
-        <button
-          onClick={onOpenVersionHistory}
-          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-          title="View Version History"
-        >
-          📜 History
-        </button>
+      {user && drill && (
+        <>
+          {onSaveVersion && (
+            <button
+              onClick={onSaveVersion}
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+              title="Save a new named version"
+            >
+              Save
+            </button>
+          )}
+          {onOpenVersionHistory && (
+            <button
+              onClick={onOpenVersionHistory}
+              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              title="View Version History"
+            >
+              📜 History
+            </button>
+          )}
+        </>
       )}
       <AuthButton />
       <button

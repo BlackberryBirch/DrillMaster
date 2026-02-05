@@ -7,6 +7,7 @@ import Layout from './components/UI/Layout';
 import BuildInfo from './components/UI/BuildInfo';
 import Home from './components/Home/Home';
 import VersionHistory from './components/VersionHistory/VersionHistory';
+import SaveVersionDialog from './components/VersionHistory/SaveVersionDialog';
 import { CloudStorageAdapter } from './utils/cloudStorage';
 import { JSONFileFormatAdapter } from './utils/fileIO';
 import { useAutoSave } from './hooks/useAutoSave';
@@ -26,7 +27,10 @@ function DrillEditor() {
   const isLoadingRef = useRef(false);
   const loadedDrillIdRef = useRef<string | null>(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showAutoSavedVersions, setShowAutoSavedVersions] = useState(false);
+  const [showSaveVersionDialog, setShowSaveVersionDialog] = useState(false);
   const [databaseDrillId, setDatabaseDrillId] = useState<string | null>(null);
+  const [isSavingVersion, setIsSavingVersion] = useState(false);
 
   // Enable auto-save when user is authenticated and drill exists
   const { isSaving, hasUnsavedChanges } = useAutoSave({
@@ -198,6 +202,30 @@ function DrillEditor() {
     }
   };
 
+  const handleSaveVersion = async (versionName: string) => {
+    if (!drill || !user || !databaseDrillId) return;
+    setIsSavingVersion(true);
+    try {
+      await cloudAdapter.saveDrillToCloud(drill);
+      const result = await drillService.createDrillVersion(
+        databaseDrillId,
+        drill,
+        drill.audioTrack?.url || null,
+        drill.audioTrack?.filename || null,
+        versionName
+      );
+      if (result.error) {
+        alert(`Failed to save version: ${result.error.message}`);
+      } else {
+        setShowSaveVersionDialog(false);
+      }
+    } catch (err) {
+      alert(`Failed to save version: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsSavingVersion(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full h-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
@@ -231,6 +259,7 @@ function DrillEditor() {
     <>
       <Layout 
         onOpenVersionHistory={() => setShowVersionHistory(true)}
+        onSaveVersion={() => setShowSaveVersionDialog(true)}
         isSaving={isSaving || hasUnsavedChanges}
       />
       {databaseDrillId && (
@@ -239,8 +268,16 @@ function DrillEditor() {
           isOpen={showVersionHistory}
           onClose={() => setShowVersionHistory(false)}
           onRestore={handleRestoreVersion}
+          showAutoSavedVersions={showAutoSavedVersions}
+          onShowAutoSavedVersionsChange={setShowAutoSavedVersions}
         />
       )}
+      <SaveVersionDialog
+        isOpen={showSaveVersionDialog}
+        onClose={() => setShowSaveVersionDialog(false)}
+        onSave={handleSaveVersion}
+        isSaving={isSavingVersion}
+      />
     </>
   );
 }
