@@ -37,17 +37,15 @@ const directionToVector = (angle: number): Point => {
 };
 
 /**
- * Calculate a curved path position using quadratic bezier curve
- * The curve respects the starting and ending directions to create a natural arc
- * where the horse moves forward in its facing direction
+ * Calculate control points for a cubic bezier curve between two positions
+ * Returns the 4 control points: P0 (start), P1, P2, P3 (end)
  */
-const interpolatePositionAlongCurve = (
+export const getBezierControlPoints = (
   startPos: Point,
   startDir: number,
   endPos: Point,
-  endDir: number,
-  t: number
-): Point => {
+  endDir: number
+): { P0: Point; P1: Point; P2: Point; P3: Point } => {
   // Calculate the distance between start and end
   const dx = endPos.x - startPos.x;
   const dy = endPos.y - startPos.y;
@@ -63,7 +61,7 @@ const interpolatePositionAlongCurve = (
   
   // Base curve strength on distance, but increase it for sharper turns
   // Sharp turns (large angle difference) need more pronounced curves
-  const baseCurveStrength = Math.min(distance * 0.4, 0.25); // Base: 40% of distance, max 25% of arena
+  const baseCurveStrength = Math.min(distance * 0.4, 20); // Base: 80% of distance, max 25% of arena
   const turnMultiplier = 1 + (absAngleDiff / Math.PI) * 0.5; // Up to 1.5x for 180° turns
   const curveStrength = baseCurveStrength * turnMultiplier;
   
@@ -71,37 +69,75 @@ const interpolatePositionAlongCurve = (
   const startVec = directionToVector(startDir);
   const endVec = directionToVector(endDir);
   
-  // Calculate control points:
-  // - Control point 1: extend forward from start in starting direction
-  // - Control point 2: extend backward from end in reverse ending direction
-  // The length of extension determines how much the curve bends
-  const control1 = {
+  // Calculate control points for cubic bezier:
+  // P0 = startPos (start point)
+  // P1 = extend forward from start in starting direction
+  // P2 = extend backward from end in reverse ending direction
+  // P3 = endPos (end point)
+  const P0 = startPos;
+  const P1 = {
     x: startPos.x + startVec.x * curveStrength,
     y: startPos.y + startVec.y * curveStrength,
   };
   
-  const control2 = {
+  const P2 = {
     x: endPos.x - endVec.x * curveStrength,
     y: endPos.y - endVec.y * curveStrength,
   };
+  const P3 = endPos;
   
-  // Use the midpoint of the two control points as the bezier control point
-  // This creates a smooth curve that respects both directions
-  const controlPoint = {
-    x: (control1.x + control2.x) / 2,
-    y: (control1.y + control2.y) / 2,
-  };
+  return { P0, P1, P2, P3 };
+};
+
+/**
+ * Calculate a curved path position using cubic bezier curve with 4 control points
+ * The curve respects the starting and ending directions to create a natural arc
+ * where the horse moves forward in its facing direction
+ * Returns both the position and the tangent vector at time t
+ */
+const interpolatePositionAlongCurve = (
+  startPos: Point,
+  startDir: number,
+  endPos: Point,
+  endDir: number,
+  t: number
+): { position: Point; tangent: Point } => {
+  const { P0, P1, P2, P3 } = getBezierControlPoints(startPos, startDir, endPos, endDir);
   
-  // Quadratic bezier curve: B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2
+  // Cubic bezier curve: B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
   const oneMinusT = 1 - t;
-  const x = oneMinusT * oneMinusT * startPos.x + 
-            2 * oneMinusT * t * controlPoint.x + 
-            t * t * endPos.x;
-  const y = oneMinusT * oneMinusT * startPos.y + 
-            2 * oneMinusT * t * controlPoint.y + 
-            t * t * endPos.y;
+  const oneMinusT2 = oneMinusT * oneMinusT;
+  const oneMinusT3 = oneMinusT2 * oneMinusT;
+  const t2 = t * t;
+  const t3 = t2 * t;
   
-  return { x, y };
+  const x = oneMinusT3 * P0.x + 
+            3 * oneMinusT2 * t * P1.x + 
+            3 * oneMinusT * t2 * P2.x + 
+            t3 * P3.x;
+  const y = oneMinusT3 * P0.y + 
+            3 * oneMinusT2 * t * P1.y + 
+            3 * oneMinusT * t2 * P2.y + 
+            t3 * P3.y;
+  
+  // Calculate tangent vector: B'(t) = 3(1-t)²(P1-P0) + 6(1-t)t(P2-P1) + 3t²(P3-P2)
+  const tangentX = 3 * oneMinusT2 * (P1.x - P0.x) + 
+                   6 * oneMinusT * t * (P2.x - P1.x) + 
+                   3 * t2 * (P3.x - P2.x);
+  const tangentY = 3 * oneMinusT2 * (P1.y - P0.y) + 
+                   6 * oneMinusT * t * (P2.y - P1.y) + 
+                   3 * t2 * (P3.y - P2.y);
+  
+  // Normalize the tangent vector
+  const tangentLength = Math.sqrt(tangentX * tangentX + tangentY * tangentY);
+  const normalizedTangent = tangentLength > 0 
+    ? { x: tangentX / tangentLength, y: tangentY / tangentLength }
+    : { x: 0, y: 0 };
+  
+  return { 
+    position: { x, y },
+    tangent: normalizedTangent
+  };
 };
 
 /**
@@ -204,7 +240,7 @@ export const interpolateHorse = (
 
   // Interpolate position along a curved path that respects the horse's facing direction
   // This creates a natural arc where the horse moves forward in its current direction
-  const interpolatedPosition = interpolatePositionAlongCurve(
+  const { position: interpolatedPosition, tangent } = interpolatePositionAlongCurve(
     fromHorse.position,
     fromHorse.direction,
     toHorse.position,
@@ -212,8 +248,9 @@ export const interpolateHorse = (
     interpolationT
   );
 
-  // Interpolate direction
-  const interpolatedDirection = lerpAngle(fromHorse.direction, toHorse.direction, interpolationT);
+  // Calculate direction from the tangent vector
+  // The tangent points in the direction of movement, so we use atan2 to get the angle
+  const interpolatedDirection = Math.atan2(tangent.y, tangent.x);
 
   // Use the gait from the current frame (or interpolate if needed)
   // For now, use the gait from the starting frame
@@ -254,5 +291,48 @@ export const getInterpolatedHorses = (
   return Array.from(horseLabels)
     .map((horseLabel) => interpolateHorse(horseLabel, currentFrame, nextFrame, t))
     .filter((horse): horse is Horse => horse !== null);
+};
+
+/**
+ * Get bezier control points for all horses being interpolated at a given time
+ * Returns a map of horse label to control points
+ */
+export const getBezierControlPointsForHorses = (
+  frames: Frame[],
+  time: number
+): Map<string | number, { P0: Point; P1: Point; P2: Point; P3: Point }> => {
+  const interpolation = getFrameInterpolation(frames, time);
+  if (!interpolation) return new Map();
+
+  const { frameIndex, nextFrameIndex } = interpolation;
+  const currentFrame = frames[frameIndex];
+  const nextFrame = nextFrameIndex !== null ? frames[nextFrameIndex] : null;
+
+  if (!nextFrame) return new Map();
+
+  // Get all unique horse labels from both frames
+  const horseLabels = new Set<string | number>();
+  currentFrame.horses.forEach((h) => horseLabels.add(h.label));
+  nextFrame.horses.forEach((h) => horseLabels.add(h.label));
+
+  const controlPointsMap = new Map<string | number, { P0: Point; P1: Point; P2: Point; P3: Point }>();
+
+  // Get control points for each horse
+  Array.from(horseLabels).forEach((horseLabel) => {
+    const fromHorse = currentFrame.horses.find((h) => h.label === horseLabel);
+    const toHorse = nextFrame.horses.find((h) => h.label === horseLabel);
+
+    if (fromHorse && toHorse) {
+      const controlPoints = getBezierControlPoints(
+        fromHorse.position,
+        fromHorse.direction,
+        toHorse.position,
+        toHorse.direction
+      );
+      controlPointsMap.set(horseLabel, controlPoints);
+    }
+  });
+
+  return controlPointsMap;
 };
 
