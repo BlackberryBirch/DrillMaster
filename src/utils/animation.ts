@@ -238,6 +238,11 @@ export const interpolateHorse = (
   const sameGait = fromHorse.speed === toHorse.speed;
   const interpolationT = sameGait ? t : easeInOut(t);
 
+  // Distance between start and end (positions are in meters from center)
+  const dx = toHorse.position.x - fromHorse.position.x;
+  const dy = toHorse.position.y - fromHorse.position.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
   // Interpolate position along a curved path that respects the horse's facing direction
   // This creates a natural arc where the horse moves forward in its current direction
   const { position: interpolatedPosition, tangent } = interpolatePositionAlongCurve(
@@ -248,9 +253,13 @@ export const interpolateHorse = (
     interpolationT
   );
 
-  // Calculate direction from the tangent vector
-  // The tangent points in the direction of movement, so we use atan2 to get the angle
-  const interpolatedDirection = Math.atan2(tangent.y, tangent.x);
+  // Use lerp for direction when distance is small (< 3 m) to avoid tangent noise;
+  // use tangent when distance is larger for natural curve-following
+  const SMALL_DISTANCE_THRESHOLD_M = 4;
+  const interpolatedDirection =
+    distance < SMALL_DISTANCE_THRESHOLD_M
+      ? lerpAngle(fromHorse.direction, toHorse.direction, interpolationT)
+      : Math.atan2(tangent.y, tangent.x);
 
   // Use the gait from the current frame (or interpolate if needed)
   // For now, use the gait from the starting frame
