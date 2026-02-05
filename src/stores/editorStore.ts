@@ -4,15 +4,17 @@ import { Point } from '../types';
 interface EditorStore {
   selectedHorseIds: string[];
   showDirectionArrows: boolean;
+  showPaths: boolean;
   zoom: number;
   pan: Point;
-  
+
   // Actions
   setSelectedHorses: (ids: string[]) => void;
   addSelectedHorse: (id: string) => void;
   removeSelectedHorse: (id: string) => void;
   clearSelection: () => void;
   toggleDirectionArrows: () => void;
+  toggleShowPaths: () => void;
   setZoom: (zoom: number) => void;
   setPan: (pan: Point) => void;
   resetView: () => void;
@@ -21,6 +23,7 @@ interface EditorStore {
 export const useEditorStore = create<EditorStore>((set) => ({
   selectedHorseIds: [],
   showDirectionArrows: true,
+  showPaths: false,
   zoom: 1.0,
   pan: { x: 0, y: 0 },
 
@@ -42,7 +45,10 @@ export const useEditorStore = create<EditorStore>((set) => ({
   
   toggleDirectionArrows: () =>
     set((state) => ({ showDirectionArrows: !state.showDirectionArrows })),
-  
+
+  toggleShowPaths: () =>
+    set((state) => ({ showPaths: !state.showPaths })),
+
   setZoom: (zoom) => set({ zoom: Math.max(0.5, Math.min(3.0, zoom)) }),
   
   setPan: (pan) => set({ pan }),

@@ -42,6 +42,8 @@ const AlignVerticalIcon = () => (
 export default function EditorToolbar() {
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
   const toggleDirectionArrows = useEditorStore((state) => state.toggleDirectionArrows);
+  const showPaths = useEditorStore((state) => state.showPaths);
+  const toggleShowPaths = useEditorStore((state) => state.toggleShowPaths);
   const resetView = useEditorStore((state) => state.resetView);
   const selectedHorseIds = useEditorStore((state) => state.selectedHorseIds);
   
@@ -85,7 +87,15 @@ export default function EditorToolbar() {
         />
         Show Arrows
       </label>
-      
+      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input
+          type="checkbox"
+          checked={showPaths}
+          onChange={toggleShowPaths}
+        />
+        Show Paths
+      </label>
+
       <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
       
       <button

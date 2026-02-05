@@ -5,7 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useAnimationStore } from '../../stores/animationStore';
 import { getGridLines, canvasToPoint, pointToCanvas } from '../../utils/arena';
-import { getInterpolatedHorses } from '../../utils/animation';
+import { getInterpolatedHorses, getBezierControlPoints, getBezierControlPointsForHorses, sampleBezierCurve } from '../../utils/animation';
 import { Horse, Gait } from '../../types';
 import HorseRenderer from './HorseRenderer';
 import GroupSelectionControls from './GroupSelectionControls';
@@ -32,6 +32,8 @@ export default function ArenaCanvas({
   const currentFrame = useDrillStore((state) => state.getCurrentFrame());
   const selectedHorseIds = useEditorStore((state) => state.selectedHorseIds);
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
+  const showPaths = useEditorStore((state) => state.showPaths);
+  const currentFrameIndex = useDrillStore((state) => state.currentFrameIndex);
   const updateHorseInFrame = useDrillStore((state) => state.updateHorseInFrame);
   const batchUpdateHorsesInFrame = useDrillStore((state) => state.batchUpdateHorsesInFrame);
   const setSelectedHorses = useEditorStore((state) => state.setSelectedHorses);
@@ -283,6 +285,35 @@ export default function ArenaCanvas({
     return [];
   }, [animationState, drill, animationTime, currentFrame]);
 
+  // Full Bezier path curves from previous frame to current for each horse (when Show Paths is on)
+  const pathCurves = React.useMemo(() => {
+    if (!showPaths || !drill?.frames.length) return [];
+    const curves: { x: number; y: number }[][] = [];
+    if (animationState === 'playing') {
+      const controlPointsMap = getBezierControlPointsForHorses(drill.frames, animationTime);
+      controlPointsMap.forEach(({ P0, P1, P2, P3 }) => {
+        const points = sampleBezierCurve(P0, P1, P2, P3).map((p) => p.position);
+        curves.push(points);
+      });
+    } else if (currentFrame && currentFrameIndex > 0) {
+      const prevFrame = drill.frames[currentFrameIndex - 1];
+      currentFrame.horses.forEach((horse) => {
+        const fromHorse = prevFrame.horses.find((h) => h.label === horse.label);
+        if (fromHorse) {
+          const { P0, P1, P2, P3 } = getBezierControlPoints(
+            fromHorse.position,
+            fromHorse.direction,
+            horse.position,
+            horse.direction
+          );
+          const points = sampleBezierCurve(P0, P1, P2, P3).map((p) => p.position);
+          curves.push(points);
+        }
+      });
+    }
+    return curves;
+  }, [showPaths, drill, animationState, animationTime, currentFrame, currentFrameIndex]);
+
   // Handle arena background click - deselect all horses
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleArenaClick = (e: any) => {
@@ -498,6 +529,23 @@ export default function ArenaCanvas({
           listening={false}
         />
       )}
+
+      {/* Full Bezier paths from previous frame to current for each horse */}
+      {pathCurves.map((curve, i) => {
+        const flatPoints = curve.flatMap((p) => {
+          const c = pointToCanvas(p, width, height);
+          return [c.x, c.y];
+        });
+        return (
+          <Line
+            key={i}
+            points={flatPoints}
+            stroke={theme === 'dark' ? 'rgba(120, 180, 255, 0.7)' : 'rgba(59, 130, 246, 0.7)'}
+            strokeWidth={2}
+            listening={false}
+          />
+        );
+      })}
 
       {/* Horses */}
       {horsesToDisplay.map((horse) => {

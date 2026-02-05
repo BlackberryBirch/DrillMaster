@@ -1,14 +1,6 @@
 import { Frame, Horse, Point } from '../types';
 
 /**
- * Easing function for smooth animation (ease-in-out)
- * Provides smoother acceleration and deceleration
- */
-export const easeInOut = (t: number): number => {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-};
-
-/**
  * Linear interpolation between two values
  */
 export const lerp = (start: number, end: number, t: number): number => {
@@ -90,20 +82,73 @@ export const getBezierControlPoints = (
 };
 
 /**
+ * Euclidean distance between two points.
+ */
+const distance = (a: Point, b: Point): number =>
+  Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+
+/**
+ * Sample a cubic Bezier curve (P0, P1, P2, P3) into an array of points and
+ * a parallel array of relative distance travelled at each point (0 at start, 1 at end).
+ * Relative distance at index i = (sum of segment lengths from start to point i) / total length.
+ */
+export const sampleBezierCurve = (
+  P0: Point,
+  P1: Point,
+  P2: Point,
+  P3: Point,
+  numSamples: number = 32
+): {position: Point, tangent: Point}[] => {
+  const points: {position: Point, tangent: Point}[] = [];
+  for (let i = 0; i <= numSamples; i++) {
+    const t = i / numSamples;
+    points.push(interpolatePositionAlongCurve(P0, P1, P2, P3, t));
+  }
+  return points;
+}
+
+export const interpolatePathPoints = (
+  points: {position: Point, tangent: Point}[],
+  relativeDistance: number
+): {position: Point, tangent: Point} => {
+  if (relativeDistance <= 0) {
+    return points[0];
+  }
+  let total = 0;
+  const segmentLengths: number[] = [];
+  segmentLengths.push(0);
+  for (let i = 0; i < points.length - 1; i++) {
+    const d = distance(points[i].position, points[i + 1].position);
+    segmentLengths.push(d);
+    total += d;
+  }
+  const scaledSegmentLengths = segmentLengths.map((length) => length / total);
+  for (let i = 1; i < scaledSegmentLengths.length; i++) {
+    if (relativeDistance < scaledSegmentLengths[i]) {
+      const t = relativeDistance / scaledSegmentLengths[i];
+      return {
+        position: lerpPoint(points[i-1].position, points[i].position, t),
+        tangent: lerpPoint(points[i-1].tangent, points[i].tangent, t)
+      };
+    }
+    relativeDistance -= scaledSegmentLengths[i];
+  }
+  return points[points.length - 1];
+};
+
+/**
  * Calculate a curved path position using cubic bezier curve with 4 control points
  * The curve respects the starting and ending directions to create a natural arc
  * where the horse moves forward in its facing direction
  * Returns both the position and the tangent vector at time t
  */
 const interpolatePositionAlongCurve = (
-  startPos: Point,
-  startDir: number,
-  endPos: Point,
-  endDir: number,
+  P0: Point,
+  P1: Point,
+  P2: Point,
+  P3: Point,
   t: number
-): { position: Point; tangent: Point } => {
-  const { P0, P1, P2, P3 } = getBezierControlPoints(startPos, startDir, endPos, endDir);
-  
+): { position: Point; tangent: Point } => {  
   // Cubic bezier curve: B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
   const oneMinusT = 1 - t;
   const oneMinusT2 = oneMinusT * oneMinusT;
@@ -232,28 +277,25 @@ export const interpolateHorse = (
     return fromHorse;
   }
 
-  // Check if the gait (speed) is the same between frames
-  // If same gait, use linear interpolation for constant speed
-  // If different gait, use easing for smoother transitions
-  const sameGait = fromHorse.speed === toHorse.speed;
-  const interpolationT = sameGait ? t : easeInOut(t);
+  const interpolationT = t;
 
   // Distance between start and end (positions are in meters from center)
   const dx = toHorse.position.x - fromHorse.position.x;
   const dy = toHorse.position.y - fromHorse.position.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
 
-  // Interpolate position along a curved path that respects the horse's facing direction
-  // This creates a natural arc where the horse moves forward in its current direction
-  const { position: interpolatedPosition, tangent } = interpolatePositionAlongCurve(
+  // Sample the Bezier curve to get arc-length parameterization, then map time to
+  // curve parameter so the horse moves at constant speed along the path
+  const { P0, P1, P2, P3 } = getBezierControlPoints(
     fromHorse.position,
     fromHorse.direction,
     toHorse.position,
-    toHorse.direction,
-    interpolationT
+    toHorse.direction
   );
+  const points = sampleBezierCurve(P0, P1, P2, P3);
+  const {position: interpolatedPosition, tangent} = interpolatePathPoints(points, interpolationT);
 
-  // Use lerp for direction when distance is small (< 3 m) to avoid tangent noise;
+  // Use lerp for direction when distance is small (< 4 m) to avoid tangent noise;
   // use tangent when distance is larger for natural curve-following
   const SMALL_DISTANCE_THRESHOLD_M = 4;
   const interpolatedDirection =
