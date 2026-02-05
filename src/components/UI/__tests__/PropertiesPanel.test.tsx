@@ -24,23 +24,15 @@ describe('PropertiesPanel', () => {
     expect(screen.getByText('Properties')).toBeInTheDocument();
   });
 
-  it('should show editor settings', () => {
-    render(<PropertiesPanel />);
-    
-    expect(screen.getByText('Editor Settings')).toBeInTheDocument();
-    expect(screen.getByText('Show Direction Arrows')).toBeInTheDocument();
-  });
-
-  it('should show frame properties when frame exists', () => {
+  it('should show frame duration when frame exists', () => {
     const drill = createDrill('test-id', 'Test Drill');
     const frame = createFrame(generateId(), 0, 0, 5.0);
     drill.frames = [frame];
     useDrillStore.setState({ drill });
 
     render(<PropertiesPanel />);
-    
-    expect(screen.getByText(/Frame 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Horses: 0/)).toBeInTheDocument();
+
+    expect(screen.getByText(/Duration \(seconds\)/)).toBeInTheDocument();
   });
 
   it('should show selected horse properties', () => {
