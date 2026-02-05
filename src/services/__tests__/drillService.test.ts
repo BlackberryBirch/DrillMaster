@@ -40,6 +40,7 @@ interface MockQueryBuilder {
   update: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   single: ReturnType<typeof vi.fn>;
@@ -61,6 +62,7 @@ describe('DrillService', () => {
       update: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
       single: vi.fn().mockReturnThis(),
@@ -836,6 +838,192 @@ describe('DrillService', () => {
       const result = await DrillService.recordToDrill(record, null);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getShareLinkVersionNumbers', () => {
+    it('should return error when user is not authenticated', async () => {
+      (supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+        data: { user: null },
+        error: null,
+      });
+
+      const result = await drillService.getShareLinkVersionNumbers('drill-id');
+
+      expect(result.error).not.toBeNull();
+      expect(result.error?.message).toBe('User not authenticated');
+      expect(result.data).toBeNull();
+    });
+
+    it('should return version numbers that have active share links', async () => {
+      (supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockDrill = {
+        id: 'drill-id',
+        user_id: mockUser.id,
+        name: 'Test Drill',
+        short_id: 'abc123',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      mockQueryBuilder.single.mockResolvedValueOnce({
+        data: mockDrill,
+        error: null,
+      });
+
+      mockQueryBuilder.or.mockResolvedValue({
+        data: [{ version_number: 1 }, { version_number: 3 }],
+        error: null,
+      });
+
+      const result = await drillService.getShareLinkVersionNumbers('drill-id');
+
+      expect(result.error).toBeNull();
+      expect(result.data).toEqual([1, 3]);
+      expect(supabase.from).toHaveBeenCalledWith('drills');
+      expect(supabase.from).toHaveBeenCalledWith('share_links');
+      expect(mockQueryBuilder.eq).toHaveBeenCalledWith('drill_id', 'drill-id');
+    });
+
+    it('should return empty array when no share links exist', async () => {
+      (supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      mockQueryBuilder.single.mockResolvedValueOnce({
+        data: { id: 'drill-id', user_id: mockUser.id, name: 'Test', short_id: 'x', created_at: '', updated_at: '' },
+        error: null,
+      });
+
+      mockQueryBuilder.or.mockResolvedValue({
+        data: [],
+        error: null,
+      });
+
+      const result = await drillService.getShareLinkVersionNumbers('drill-id');
+
+      expect(result.error).toBeNull();
+      expect(result.data).toEqual([]);
+    });
+  });
+
+  describe('getDrillByShareToken', () => {
+    it('should return error when token is invalid', async () => {
+      mockQueryBuilder.single.mockResolvedValue({
+        data: null,
+        error: { message: 'Not found' },
+      });
+
+      const result = await drillService.getDrillByShareToken('bad-token');
+
+      expect(result.error).not.toBeNull();
+      expect(result.error?.message).toContain('Share link not found or invalid');
+      expect(result.data).toBeNull();
+    });
+
+    it('should return error when share link is expired', async () => {
+      const expiredLink = {
+        id: 'link-id',
+        drill_id: 'drill-id',
+        version_number: 1,
+        share_token: 'token',
+        created_by: mockUser.id,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() - 86400000).toISOString(),
+        access_count: 0,
+        last_accessed_at: null,
+      };
+
+      mockQueryBuilder.single.mockResolvedValueOnce({
+        data: expiredLink,
+        error: null,
+      });
+
+      const result = await drillService.getDrillByShareToken('token');
+
+      expect(result.error).not.toBeNull();
+      expect(result.error?.message).toContain('expired');
+      expect(result.data).toBeNull();
+    });
+  });
+
+  describe('createShareLink', () => {
+    it('should return error when version has no version_label (not named)', async () => {
+      (supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const versionNoLabel = {
+        id: 'v-id',
+        drill_id: 'drill-id',
+        user_id: mockUser.id,
+        version_number: 1,
+        drill_data: createDrill('x', 'Drill'),
+        name: 'Drill',
+        version_label: null,
+        audio_url: null,
+        audio_filename: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      mockQueryBuilder.single.mockResolvedValueOnce({
+        data: { id: 'drill-id', user_id: mockUser.id, name: 'Drill', short_id: 'x', created_at: '', updated_at: '' },
+        error: null,
+      });
+      mockQueryBuilder.single.mockResolvedValueOnce({
+        data: versionNoLabel,
+        error: null,
+      });
+
+      const result = await drillService.createShareLink('drill-id', 1);
+
+      expect(result.error).not.toBeNull();
+      expect(result.error?.message).toContain('Only named versions');
+      expect(result.data).toBeNull();
+    });
+
+    it('should return existing token when share link already exists and forceNew is false', async () => {
+      (supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const versionWithLabel = {
+        id: 'v-id',
+        drill_id: 'drill-id',
+        user_id: mockUser.id,
+        version_number: 1,
+        drill_data: createDrill('x', 'Drill'),
+        name: 'Drill',
+        version_label: 'My Version',
+        audio_url: null,
+        audio_filename: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // createShareLink calls getDrillVersion first (drill_versions.single), then share_links.maybeSingle
+      mockQueryBuilder.single.mockResolvedValueOnce({
+        data: versionWithLabel,
+        error: null,
+      });
+      mockQueryBuilder.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'link-id', share_token: 'existing-token-123' },
+        error: null,
+      });
+
+      const result = await drillService.createShareLink('drill-id', 1);
+
+      expect(result.error).toBeNull();
+      expect(result.data).toEqual({ shareToken: 'existing-token-123' });
+      expect(mockQueryBuilder.insert).not.toHaveBeenCalled();
     });
   });
 });

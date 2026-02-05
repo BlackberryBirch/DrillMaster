@@ -54,6 +54,12 @@ describe('AnimationControls', () => {
     expect(audioButton.textContent).toMatch(/[🔊🔇]/u);
   });
 
+  it('should hide audio controls when hideAudio is true', () => {
+    render(<AnimationControls hideAudio />);
+    
+    expect(screen.queryByTitle('Audio Settings')).not.toBeInTheDocument();
+  });
+
   it('should disable previous frame button at start', () => {
     const drill = createDrill('test-id', 'Test Drill');
     drill.frames = [createFrame(generateId(), 0, 0, 5.0)];

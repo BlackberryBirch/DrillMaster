@@ -5,7 +5,12 @@ import { useAnimation } from '../../hooks/useAnimation';
 import { useAudio } from '../../hooks/useAudio';
 import AudioControl from './AudioControl';
 
-export default function AnimationControls() {
+interface AnimationControlsProps {
+  /** When true, hide the audio control (e.g. in the shared drill player) */
+  hideAudio?: boolean;
+}
+
+export default function AnimationControls({ hideAudio = false }: AnimationControlsProps) {
   const [showSpeedPopup, setShowSpeedPopup] = useState(false);
   const speedPopupRef = useRef<HTMLDivElement>(null);
   const speedButtonRef = useRef<HTMLButtonElement>(null);
@@ -155,8 +160,8 @@ export default function AnimationControls() {
         )}
       </div>
 
-      {/* Audio Controls */}
-      <AudioControl />
+      {/* Audio Controls - hidden in player */}
+      {!hideAudio && <AudioControl />}
 
       {/* Timeline */}
       <div className="flex-1 mx-4">

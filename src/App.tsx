@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useDrillStore } from './stores/drillStore';
 import { useThemeStore } from './stores/themeStore';
 import { useAuthStore } from './stores/authStore';
 import Layout from './components/UI/Layout';
 import BuildInfo from './components/UI/BuildInfo';
 import Home from './components/Home/Home';
+import DrillPlayer from './components/Player/DrillPlayer';
 import VersionHistory from './components/VersionHistory/VersionHistory';
 import SaveVersionDialog from './components/VersionHistory/SaveVersionDialog';
 import { CloudStorageAdapter } from './utils/cloudStorage';
@@ -282,8 +283,10 @@ function DrillEditor() {
   );
 }
 
-function App() {
+function AppContent() {
   const theme = useThemeStore((state) => state.theme);
+  const location = useLocation();
+  const isPlayerRoute = location.pathname.startsWith('/play/');
   const initializeAuth = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
@@ -301,14 +304,21 @@ function App() {
   }, [theme]);
 
   return (
+    <div className="w-full h-full bg-gray-100 dark:bg-gray-900 relative">
+      <Routes>
+        <Route path="/play/:token" element={<DrillPlayer />} />
+        <Route path="/drill/:id" element={<DrillEditor />} />
+        <Route path="/" element={<Home />} />
+      </Routes>
+      {!isPlayerRoute && <BuildInfo />}
+    </div>
+  );
+}
+
+function App() {
+  return (
     <BrowserRouter>
-      <div className="w-full h-full bg-gray-100 dark:bg-gray-900 relative">
-        <Routes>
-          <Route path="/drill/:id" element={<DrillEditor />} />
-          <Route path="/" element={<Home />} />
-        </Routes>
-        <BuildInfo />
-      </div>
+      <AppContent />
     </BrowserRouter>
   );
 }

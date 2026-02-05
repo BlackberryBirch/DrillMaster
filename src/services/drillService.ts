@@ -1,8 +1,16 @@
 import { supabase } from '../lib/supabase';
 import { Drill } from '../types/drill';
-import { DrillRecord, CreateDrillInput, UpdateDrillInput, DatabaseResult, DrillVersionRecord } from '../types/database';
+import { DrillRecord, CreateDrillInput, UpdateDrillInput, DatabaseResult, DrillVersionRecord, ShareLinkRecord } from '../types/database';
 import type { User } from '@supabase/supabase-js';
 import { JSONFileFormatAdapter } from '../utils/fileIO';
+
+/** Generate a URL-safe random token for share links (browser-safe) */
+function generateShareToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const base64 = btoa(String.fromCharCode(...bytes));
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 /**
  * Configuration constants
@@ -808,6 +816,240 @@ export class DrillService {
         error: null,
       };
     }, 'get drill by short id with version');
+  }
+
+  /**
+   * Get a drill by share token (no authentication required).
+   * Used by the public player link.
+   */
+  async getDrillByShareToken(token: string): Promise<DatabaseResult<Drill>> {
+    try {
+      const { data: shareLink, error: linkError } = await supabase
+        .from('share_links')
+        .select('*')
+        .eq('share_token', token)
+        .single();
+
+      if (linkError || !shareLink) {
+        return {
+          data: null,
+          error: new Error('Share link not found or invalid'),
+        };
+      }
+
+      const sl = shareLink as ShareLinkRecord;
+      if (sl.expires_at && new Date(sl.expires_at) < new Date()) {
+        return {
+          data: null,
+          error: new Error('Share link has expired'),
+        };
+      }
+
+      const { data: drillRecord, error: drillError } = await supabase
+        .from('drills')
+        .select('*')
+        .eq('id', sl.drill_id)
+        .single();
+
+      if (drillError || !drillRecord) {
+        return {
+          data: null,
+          error: new Error('Drill not found'),
+        };
+      }
+
+      const { data: version, error: versionError } = await supabase
+        .from('drill_versions')
+        .select('*')
+        .eq('drill_id', sl.drill_id)
+        .eq('version_number', sl.version_number)
+        .single();
+
+      if (versionError || !version) {
+        return {
+          data: null,
+          error: new Error('Version not found'),
+        };
+      }
+
+      const drill = await DrillService.recordToDrill(
+        drillRecord as DrillRecord,
+        version as DrillVersionRecord
+      );
+
+      if (!drill) {
+        return {
+          data: null,
+          error: new Error('Failed to load drill data'),
+        };
+      }
+
+      await supabase
+        .from('share_links')
+        .update({
+          access_count: (sl.access_count || 0) + 1,
+          last_accessed_at: new Date().toISOString(),
+        })
+        .eq('id', sl.id);
+
+      return { data: drill, error: null };
+    } catch (error) {
+      return this.createErrorResult(error, 'get drill by share token');
+    }
+  }
+
+  /**
+   * Get version numbers that have an active share link for this drill (authenticated).
+   */
+  async getShareLinkVersionNumbers(drillId: string): Promise<DatabaseResult<number[]>> {
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
+      }
+
+      const recordResult = await this.getDrillById(drillId);
+      if (recordResult.error || !recordResult.data) {
+        return {
+          data: null,
+          error: recordResult.error || new Error('Drill not found'),
+        };
+      }
+
+      const { data: rows, error } = await supabase
+        .from('share_links')
+        .select('version_number')
+        .eq('drill_id', drillId)
+        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+
+      if (error) {
+        return this.createErrorResult(error, 'fetch share link version numbers');
+      }
+
+      const versionNumbers = (rows || []).map((r: { version_number: number }) => r.version_number);
+      return { data: versionNumbers, error: null };
+    }, 'get share link version numbers');
+  }
+
+  /**
+   * Get existing share link for a version (authenticated). Returns null if none.
+   */
+  async getShareLinkForVersion(
+    drillId: string,
+    versionNumber: number
+  ): Promise<DatabaseResult<{ shareToken: string } | null>> {
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
+      }
+
+      const recordResult = await this.getDrillById(drillId);
+      if (recordResult.error || !recordResult.data) {
+        return {
+          data: null,
+          error: recordResult.error || new Error('Drill not found'),
+        };
+      }
+
+      const { data: row, error } = await supabase
+        .from('share_links')
+        .select('share_token')
+        .eq('drill_id', drillId)
+        .eq('version_number', versionNumber)
+        .maybeSingle();
+
+      if (error) {
+        return this.createErrorResult(error, 'fetch share link');
+      }
+
+      if (!row) {
+        return { data: null, error: null };
+      }
+
+      return {
+        data: { shareToken: (row as { share_token: string }).share_token },
+        error: null,
+      };
+    }, 'get share link for version');
+  }
+
+  /**
+   * Create or get a share link for a named version only (authenticated).
+   * Only versions with a version_label can be shared.
+   * @param forceNew - If true, regenerate the token (invalidates previous link)
+   */
+  async createShareLink(
+    drillId: string,
+    versionNumber: number,
+    options?: { forceNew?: boolean }
+  ): Promise<DatabaseResult<{ shareToken: string }>> {
+    return this.wrapDatabaseOperation(async () => {
+      const authResult = await this.ensureAuthenticated();
+      if (authResult.error) {
+        return { data: null, error: authResult.error };
+      }
+
+      const versionResult = await this.getDrillVersion(drillId, versionNumber);
+      if (versionResult.error || !versionResult.data) {
+        return {
+          data: null,
+          error: versionResult.error || new Error('Version not found'),
+        };
+      }
+
+      const version = versionResult.data;
+      if (version.version_label == null || version.version_label.trim() === '') {
+        return {
+          data: null,
+          error: new Error('Only named versions can be shared. Save this version with a name first.'),
+        };
+      }
+
+      const existing = await supabase
+        .from('share_links')
+        .select('id, share_token')
+        .eq('drill_id', drillId)
+        .eq('version_number', versionNumber)
+        .maybeSingle();
+
+      if (existing.data && !options?.forceNew) {
+        return {
+          data: { shareToken: (existing.data as { share_token: string }).share_token },
+          error: null,
+        };
+      }
+
+      const shareToken = generateShareToken();
+
+      if (existing.data) {
+        const { error: updateError } = await supabase
+          .from('share_links')
+          .update({
+            share_token: shareToken,
+            last_accessed_at: null,
+          })
+          .eq('id', (existing.data as { id: string }).id)
+          .eq('created_by', authResult.user.id);
+
+        if (updateError) {
+          return this.createErrorResult(updateError, 'update share link token');
+        }
+      } else {
+        const { error: insertError } = await supabase.from('share_links').insert({
+          drill_id: drillId,
+          version_number: versionNumber,
+          share_token: shareToken,
+          created_by: authResult.user.id,
+        });
+
+        if (insertError) {
+          return this.createErrorResult(insertError, 'create share link');
+        }
+      }
+
+      return { data: { shareToken }, error: null };
+    }, 'create share link');
   }
 }
 

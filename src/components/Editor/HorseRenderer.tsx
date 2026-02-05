@@ -23,6 +23,12 @@ interface HorseRendererProps {
   x: number;
   y: number;
   isSelected: boolean;
+  /** When true, show highlight style (e.g. player mode focus) */
+  isHighlighted?: boolean;
+  /** When false, use a single color for all horses (e.g. in player view). Default true = color by gait */
+  useGaitColor?: boolean;
+  /** Scale factor for horse and label size (e.g. 1.5 = 50% larger). Default 1 */
+  scale?: number;
   showArrow: boolean;
   onDrag: (x: number, y: number) => void;
   onDragStart?: () => void;
@@ -42,6 +48,9 @@ export default function HorseRenderer({
   x,
   y,
   isSelected,
+  isHighlighted = false,
+  useGaitColor = true,
+  scale = 1,
   showArrow,
   onDrag,
   onDragStart,
@@ -55,7 +64,8 @@ export default function HorseRenderer({
   canvasHeight,
 }: HorseRendererProps) {
   const theme = useThemeStore((state) => state.theme);
-  
+  const horseFillColor = useGaitColor ? GAIT_COLORS[horse.speed] : '#6B7280';
+
   // Track if an actual drag occurred (mouse moved after mousedown)
   const hasDraggedRef = React.useRef<boolean>(false);
   const dragStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -161,7 +171,9 @@ export default function HorseRenderer({
   
   const horseLength = HORSE_LENGTH_METERS / metersPerPixel;
   const horseWidth = horseLength * HORSE_WIDTH_RATIO;
-  
+  const effectiveHorseLength = horseLength * scale;
+  const effectiveHorseWidth = horseWidth * scale;
+
   // Calculate arrow length based on speed (gait)
   const baseArrowLength = horseLength * ARROW_LENGTH_MULTIPLIERS[horse.speed];
   
@@ -256,50 +268,50 @@ export default function HorseRenderer({
       <Ellipse
         x={0}
         y={0}
-        radiusX={horseLength / 2}
-        radiusY={horseWidth / 2}
-        fill={GAIT_COLORS[horse.speed]}
-        stroke={isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
-        strokeWidth={isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
+        radiusX={effectiveHorseLength / 2}
+        radiusY={effectiveHorseWidth / 2}
+        fill={horseFillColor}
+        stroke={isHighlighted ? '#F59E0B' : isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
+        strokeWidth={isHighlighted ? 4 : isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
         opacity={HORSE_RENDERING.OPACITY}
       />
 
       {/* Horse Head - Smaller ellipse at front */}
       <Ellipse
-        x={horseLength / 2 - horseLength * HORSE_BODY_RATIOS.HEAD_OFFSET}
+        x={effectiveHorseLength / 2 - effectiveHorseLength * HORSE_BODY_RATIOS.HEAD_OFFSET}
         y={0}
-        radiusX={horseLength * HORSE_BODY_RATIOS.HEAD_RADIUS_X}
-        radiusY={horseWidth * HORSE_BODY_RATIOS.HEAD_RADIUS_Y}
-        fill={GAIT_COLORS[horse.speed]}
-        stroke={isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
-        strokeWidth={isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
+        radiusX={effectiveHorseLength * HORSE_BODY_RATIOS.HEAD_RADIUS_X}
+        radiusY={effectiveHorseWidth * HORSE_BODY_RATIOS.HEAD_RADIUS_Y}
+        fill={horseFillColor}
+        stroke={isHighlighted ? '#F59E0B' : isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
+        strokeWidth={isHighlighted ? 4 : isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
         opacity={HORSE_RENDERING.OPACITY}
       />
 
       {/* Horse Tail - Small triangle at back */}
       <Path
-        data={`M ${-horseLength / 2},0 L ${-horseLength / 2 - horseLength * HORSE_BODY_RATIOS.TAIL_EXTENSION},${-horseWidth * HORSE_BODY_RATIOS.TAIL_WIDTH} L ${-horseLength / 2 - horseLength * HORSE_BODY_RATIOS.TAIL_EXTENSION},${horseWidth * HORSE_BODY_RATIOS.TAIL_WIDTH} Z`}
-        fill={GAIT_COLORS[horse.speed]}
-        stroke={isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
-        strokeWidth={isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
+        data={`M ${-effectiveHorseLength / 2},0 L ${-effectiveHorseLength / 2 - effectiveHorseLength * HORSE_BODY_RATIOS.TAIL_EXTENSION},${-effectiveHorseWidth * HORSE_BODY_RATIOS.TAIL_WIDTH} L ${-effectiveHorseLength / 2 - effectiveHorseLength * HORSE_BODY_RATIOS.TAIL_EXTENSION},${effectiveHorseWidth * HORSE_BODY_RATIOS.TAIL_WIDTH} Z`}
+        fill={horseFillColor}
+        stroke={isHighlighted ? '#F59E0B' : isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
+        strokeWidth={isHighlighted ? 4 : isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
         opacity={HORSE_RENDERING.OPACITY}
       />
 
       {/* Horse Label - centered on the horse body */}
       <Text
         text={String(horse.label)}
-        fontSize={Math.max(HORSE_LABEL.MIN_FONT_SIZE, Math.min(HORSE_LABEL.MAX_FONT_SIZE, horseWidth * HORSE_LABEL.WIDTH_RATIO))}
+        fontSize={Math.max(HORSE_LABEL.MIN_FONT_SIZE, Math.min(HORSE_LABEL.MAX_FONT_SIZE, effectiveHorseWidth * HORSE_LABEL.WIDTH_RATIO))}
         fontStyle="bold"
         fill={HORSE_LABEL.TEXT_COLOR}
         align="center"
         verticalAlign="middle"
         x={0}
         y={0}
-        width={horseWidth * HORSE_LABEL.WIDTH_RATIO}
-        height={horseWidth * HORSE_LABEL.HEIGHT_RATIO}
+        width={effectiveHorseWidth * HORSE_LABEL.WIDTH_RATIO}
+        height={effectiveHorseWidth * HORSE_LABEL.HEIGHT_RATIO}
         rotation={-rotationDegrees}
-        offsetX={horseWidth * (HORSE_LABEL.WIDTH_RATIO / 2)}
-        offsetY={horseWidth * (HORSE_LABEL.HEIGHT_RATIO / 2)}
+        offsetX={effectiveHorseWidth * (HORSE_LABEL.WIDTH_RATIO / 2)}
+        offsetY={effectiveHorseWidth * (HORSE_LABEL.HEIGHT_RATIO / 2)}
       />
 
       {/* Direction Arrow */}

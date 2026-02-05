@@ -18,6 +18,10 @@ interface ArenaCanvasProps {
   offsetY: number;
   zoom: number;
   pan: { x: number; y: number };
+  /** When true, hide arrows/paths, disable drag and selection, and highlight horse by label */
+  playerMode?: boolean;
+  /** In player mode, the horse with this label is highlighted */
+  highlightHorseLabel?: string | number | null;
 }
 
 export default function ArenaCanvas({
@@ -27,12 +31,16 @@ export default function ArenaCanvas({
   offsetY,
   zoom,
   pan,
+  playerMode = false,
+  highlightHorseLabel = null,
 }: ArenaCanvasProps) {
   const drill = useDrillStore((state) => state.drill);
   const currentFrame = useDrillStore((state) => state.getCurrentFrame());
   const selectedHorseIds = useEditorStore((state) => state.selectedHorseIds);
   const showDirectionArrows = useEditorStore((state) => state.showDirectionArrows);
   const showPaths = useEditorStore((state) => state.showPaths);
+  const effectiveShowArrows = playerMode ? false : showDirectionArrows;
+  const effectiveShowPaths = playerMode ? false : showPaths;
   const currentFrameIndex = useDrillStore((state) => state.currentFrameIndex);
   const updateHorseInFrame = useDrillStore((state) => state.updateHorseInFrame);
   const batchUpdateHorsesInFrame = useDrillStore((state) => state.batchUpdateHorsesInFrame);
@@ -287,7 +295,7 @@ export default function ArenaCanvas({
 
   // Full Bezier path curves from previous frame to current for each horse (when Show Paths is on)
   const pathCurves = React.useMemo(() => {
-    if (!showPaths || !drill?.frames.length) return [];
+    if (!effectiveShowPaths || !drill?.frames.length) return [];
     const curves: { x: number; y: number }[][] = [];
     if (animationState === 'playing') {
       const controlPointsMap = getBezierControlPointsForHorses(drill.frames, animationTime);
@@ -312,26 +320,23 @@ export default function ArenaCanvas({
       });
     }
     return curves;
-  }, [showPaths, drill, animationState, animationTime, currentFrame, currentFrameIndex]);
+  }, [effectiveShowPaths, drill, animationState, animationTime, currentFrame, currentFrameIndex]);
 
-  // Handle arena background click - deselect all horses
+  // Handle arena background click - deselect all horses (no-op in player mode)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleArenaClick = (e: any) => {
-    // Don't allow selection during animation
+    if (playerMode) return;
     if (animationState === 'playing') return;
-    
-    // Only deselect if clicking directly on the arena (not on a horse)
-    // The event will be stopped by horses, so if we get here, it's the arena
     const nativeEvent = e.evt || e;
     if (!nativeEvent.ctrlKey && !nativeEvent.metaKey) {
       clearSelection();
     }
   };
 
-  // Handle arena drag start - begin selection rectangle
+  // Handle arena drag start - begin selection rectangle (no-op in player mode)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleArenaDragStart = (e: any) => {
-    // Don't allow selection during animation
+    if (playerMode) return;
     if (animationState === 'playing') return;
     
     // Get the position relative to the arena (accounting for zoom/pan)
@@ -480,8 +485,8 @@ export default function ArenaCanvas({
         onClick={handleArenaClick}
       />
       
-      {/* Transparent overlay for selection rectangle - handles mouse events */}
-      {!isSelecting && (
+      {/* Transparent overlay for selection rectangle - only in editor mode */}
+      {!playerMode && !isSelecting && (
         <Rect
           x={0}
           y={0}
@@ -515,8 +520,8 @@ export default function ArenaCanvas({
         />
       ))}
 
-      {/* Selection Rectangle */}
-      {selectionRect && (
+      {/* Selection Rectangle - editor mode only */}
+      {!playerMode && selectionRect && (
         <Rect
           x={Math.min(selectionRect.startX, selectionRect.endX)}
           y={Math.min(selectionRect.startY, selectionRect.endY)}
@@ -530,8 +535,8 @@ export default function ArenaCanvas({
         />
       )}
 
-      {/* Full Bezier paths from previous frame to current for each horse */}
-      {pathCurves.map((curve, i) => {
+      {/* Full Bezier paths - hidden in player mode */}
+      {!playerMode && pathCurves.map((curve, i) => {
         const flatPoints = curve.flatMap((p) => {
           const c = pointToCanvas(p, width, height);
           return [c.x, c.y];
@@ -550,7 +555,8 @@ export default function ArenaCanvas({
       {/* Horses */}
       {horsesToDisplay.map((horse) => {
         const canvasPos = pointToCanvas(horse.position, width, height);
-        const isSelected = selectedHorseIds.includes(horse.id);
+        const isSelected = !playerMode && selectedHorseIds.includes(horse.id);
+        const isHighlighted = playerMode && horse.label === highlightHorseLabel;
 
         return (
           <HorseRenderer
@@ -559,37 +565,30 @@ export default function ArenaCanvas({
             x={canvasPos.x}
             y={canvasPos.y}
             isSelected={isSelected}
-            showArrow={showDirectionArrows}
+            isHighlighted={isHighlighted}
+            useGaitColor={!playerMode}
+            scale={playerMode ? 1.5 : 1}
+            showArrow={effectiveShowArrows}
             onDrag={(newX, newY) => handleHorseDragEnd(horse.id, newX, newY)}
             onDragStart={() => handleHorseDragStart(horse.id)}
             onDragMove={(newX, newY) => handleHorseDragMove(horse.id, newX, newY)}
             onArrowDrag={(direction, speed) => handleArrowDragEnd(horse.id, direction, speed)}
             onArrowDragStart={() => handleArrowDragStart(horse.id)}
             onArrowDragMove={(direction, speed) => handleArrowDragMove(horse.id, direction, speed)}
-            draggable={animationState !== 'playing'}
+            draggable={!playerMode && animationState !== 'playing'}
             canvasWidth={width}
             canvasHeight={height}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onClick={(e: any) => {
-              // Don't allow selection during animation
+              if (playerMode) return;
               if (animationState === 'playing') return;
-              
-              // Stop event propagation so clicking a horse doesn't trigger arena click
               e.cancelBubble = true;
-              if (e.evt) {
-                e.evt.stopPropagation();
-              }
-              
+              if (e.evt) e.evt.stopPropagation();
               const nativeEvent = e.evt || e;
               if (nativeEvent.ctrlKey || nativeEvent.metaKey) {
-                // Multi-select
-                if (isSelected) {
-                  removeSelectedHorse(horse.id);
-                } else {
-                  addSelectedHorse(horse.id);
-                }
+                if (isSelected) removeSelectedHorse(horse.id);
+                else addSelectedHorse(horse.id);
               } else {
-                // Single select
                 setSelectedHorses([horse.id]);
               }
             }}
@@ -597,8 +596,8 @@ export default function ArenaCanvas({
         );
       })}
 
-              {/* Group Selection Controls - show when multiple horses are selected */}
-              {selectedHorses.length > 1 && animationState !== 'playing' && (
+              {/* Group Selection Controls - editor mode only */}
+              {!playerMode && selectedHorses.length > 1 && animationState !== 'playing' && (
                 <GroupSelectionControls
                   onRotate={handleGroupRotateFromPointer}
                   onRotateStart={() => {}} // No-op - initialization happens on first move

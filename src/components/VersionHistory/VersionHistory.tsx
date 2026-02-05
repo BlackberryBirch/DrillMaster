@@ -5,6 +5,7 @@ import { Drill } from '../../types/drill';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { JSONFileFormatAdapter } from '../../utils/fileIO';
+import ShareVersionDialog from './ShareVersionDialog';
 
 interface VersionHistoryProps {
   drillId: string; // Database UUID
@@ -18,9 +19,11 @@ interface VersionHistoryProps {
 
 export default function VersionHistory({ drillId, isOpen, onClose, onRestore, showAutoSavedVersions = false, onShowAutoSavedVersionsChange }: VersionHistoryProps) {
   const [versions, setVersions] = useState<DrillVersionRecord[]>([]);
+  const [shareLinkVersionNumbers, setShareLinkVersionNumbers] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [shareVersion, setShareVersion] = useState<DrillVersionRecord | null>(null);
 
   const loadVersions = useCallback(async () => {
     setLoading(true);
@@ -39,11 +42,20 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore, sh
     }
   }, [drillId]);
 
+  const loadShareLinkVersionNumbers = useCallback(async () => {
+    if (!drillId) return;
+    const result = await drillService.getShareLinkVersionNumbers(drillId);
+    if (result.data) {
+      setShareLinkVersionNumbers(result.data);
+    }
+  }, [drillId]);
+
   useEffect(() => {
     if (isOpen && drillId) {
       loadVersions();
+      loadShareLinkVersionNumbers();
     }
-  }, [isOpen, drillId, loadVersions]);
+  }, [isOpen, drillId, loadVersions, loadShareLinkVersionNumbers]);
 
   // When showAutoSavedVersions is false, show only named versions (version_label set)
   const displayedVersions = showAutoSavedVersions
@@ -226,7 +238,24 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore, sh
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                      {version.version_label != null && version.version_label !== '' && (
+                        <button
+                          onClick={() => setShareVersion(version)}
+                          className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                            shareLinkVersionNumbers.includes(version.version_number)
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          }`}
+                          title={
+                            shareLinkVersionNumbers.includes(version.version_number)
+                              ? 'View or copy shareable player link'
+                              : 'Get shareable player link'
+                          }
+                        >
+                          Share
+                        </button>
+                      )}
                       <button
                         onClick={() => handleRestore(version)}
                         disabled={restoring === version.id}
@@ -260,6 +289,16 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore, sh
           </button>
         </div>
       </div>
+
+      <ShareVersionDialog
+        isOpen={shareVersion !== null}
+        onClose={() => {
+          setShareVersion(null);
+          loadShareLinkVersionNumbers();
+        }}
+        drillId={drillId}
+        version={shareVersion}
+      />
     </div>
   );
 }

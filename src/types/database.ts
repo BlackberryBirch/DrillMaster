@@ -49,6 +49,22 @@ export interface DrillVersionRecord {
 }
 
 /**
+ * Share link record: allows anonymous access to a specific (named) drill version.
+ * Only named versions should have share links; enforcement is in the application.
+ */
+export interface ShareLinkRecord {
+  id: string;
+  drill_id: string;
+  version_number: number;
+  share_token: string;
+  created_by: string;
+  created_at: string;
+  expires_at: string | null;
+  access_count: number;
+  last_accessed_at: string | null;
+}
+
+/**
  * Result type for database operations
  */
 export interface DatabaseResult<T> {
