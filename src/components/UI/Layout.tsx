@@ -47,6 +47,7 @@ export default function Layout({ onOpenVersionHistory, isSaving = false }: Layou
       <div className="flex-shrink-0 border-t border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
         <AnimationControls />
       </div>
+
     </div>
   );
 }

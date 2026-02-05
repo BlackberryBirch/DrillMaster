@@ -4,6 +4,7 @@ import { useDrillStore } from './stores/drillStore';
 import { useThemeStore } from './stores/themeStore';
 import { useAuthStore } from './stores/authStore';
 import Layout from './components/UI/Layout';
+import BuildInfo from './components/UI/BuildInfo';
 import Home from './components/Home/Home';
 import VersionHistory from './components/VersionHistory/VersionHistory';
 import { CloudStorageAdapter } from './utils/cloudStorage';
@@ -264,11 +265,12 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="w-full h-full bg-gray-100 dark:bg-gray-900">
+      <div className="w-full h-full bg-gray-100 dark:bg-gray-900 relative">
         <Routes>
           <Route path="/drill/:id" element={<DrillEditor />} />
           <Route path="/" element={<Home />} />
         </Routes>
+        <BuildInfo />
       </div>
     </BrowserRouter>
   );
