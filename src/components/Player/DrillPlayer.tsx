@@ -247,7 +247,7 @@ export default function DrillPlayer() {
       </header>
 
       {/* Main: arena + horse list (column on portrait, row on landscape) */}
-      <div className="flex-1 flex flex-col min-h-0 md:flex-row">
+      <div className="flex-1 flex flex-col min-h-0 sm:flex-row">
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           <div
             ref={containerRef}
@@ -280,7 +280,7 @@ export default function DrillPlayer() {
         </div>
 
         {/* Horse list: below arena on portrait, right sidebar on landscape */}
-        <aside className="flex-shrink-0 w-full max-h-[35vh] md:max-h-none md:w-52 border-t border-gray-200 dark:border-gray-700 md:border-l bg-white dark:bg-gray-800 overflow-y-auto flex flex-col">
+        <aside className="flex-shrink-0 w-full max-h-[35vh] sm:max-h-none sm:w-52 border-t border-gray-200 dark:border-gray-700 sm:border-l bg-white dark:bg-gray-800 overflow-y-auto flex flex-col">
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">Highlight horse</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
