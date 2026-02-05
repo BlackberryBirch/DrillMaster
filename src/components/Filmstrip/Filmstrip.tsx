@@ -1,20 +1,24 @@
-import { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useDrillStore } from '../../stores/drillStore';
 import { useAnimationStore } from '../../stores/animationStore';
-import FrameThumbnail from './FrameThumbnail';
+import FrameThumbnail, { DRAG_DATA_KEY } from './FrameThumbnail';
 import FrameControls from './FrameControls';
 
 export default function Filmstrip() {
   const drill = useDrillStore((state) => state.drill);
   const currentFrameIndex = useDrillStore((state) => state.currentFrameIndex);
   const setCurrentFrame = useDrillStore((state) => state.setCurrentFrame);
+  const reorderFrames = useDrillStore((state) => state.reorderFrames);
   const setCurrentTime = useAnimationStore((state) => state.setCurrentTime);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<number | null>(null);
+  const [justDropped, setJustDropped] = useState(false);
 
   const THUMBNAIL_WIDTH = 120;
-  const GAP = 8; // gap-2 = 0.5rem = 8px
+  const DROP_ZONE_WIDTH = 16; // insertion point between frames
   const PADDING = 16; // px-4 = 1rem = 16px
 
   const checkScrollability = () => {
@@ -33,7 +37,7 @@ export default function Filmstrip() {
     if (!scrollContainerRef.current || !drill || frameIndex < 0 || frameIndex >= drill.frames.length) return;
     
     const container = scrollContainerRef.current;
-    const framePosition = PADDING + frameIndex * (THUMBNAIL_WIDTH + GAP);
+    const framePosition = PADDING + frameIndex * (THUMBNAIL_WIDTH + DROP_ZONE_WIDTH);
     const containerWidth = container.clientWidth;
     const currentScrollLeft = container.scrollLeft;
     
@@ -138,18 +142,55 @@ export default function Filmstrip() {
           ref={scrollContainerRef}
           className="flex-1 overflow-x-auto overflow-y-hidden px-4 py-2 hide-scrollbar"
         >
-          <div className="flex gap-2 h-full items-center">
+          <div className="flex h-full items-center">
             {drill.frames.map((frame, index) => (
-              <FrameThumbnail
-                key={frame.id}
-                frame={frame}
-                index={index}
-                isSelected={index === currentFrameIndex}
-                onClick={() => {
-                  setCurrentFrame(index);
-                  setCurrentTime(frame.timestamp);
-                }}
-              />
+              <React.Fragment key={frame.id}>
+                <div
+                  className="flex-shrink-0 self-stretch flex items-center justify-center min-w-4 cursor-default"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setDragOverPosition(index);
+                  }}
+                  onDragLeave={() => setDragOverPosition(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const fromIndex = parseInt(e.dataTransfer.getData(DRAG_DATA_KEY), 10);
+                    setDragOverPosition(null);
+                    setDraggedIndex(null);
+                    if (Number.isNaN(fromIndex)) return;
+                    if (fromIndex === index) return;
+                    reorderFrames(fromIndex, index);
+                    setJustDropped(true);
+                    setTimeout(() => setJustDropped(false), 100);
+                  }}
+                >
+                  {dragOverPosition === index && (
+                    <div className="w-1 h-full min-h-[60px] bg-blue-500 rounded-full shadow-sm pointer-events-none" />
+                  )}
+                </div>
+                <FrameThumbnail
+                  frame={frame}
+                  index={index}
+                  isSelected={index === currentFrameIndex}
+                  onClick={() => {
+                    if (justDropped) return;
+                    setCurrentFrame(index);
+                    setCurrentTime(frame.timestamp);
+                  }}
+                  draggable={drill.frames.length > 1}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(DRAG_DATA_KEY, String(index));
+                    e.dataTransfer.effectAllowed = 'move';
+                    setDraggedIndex(index);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedIndex(null);
+                    setDragOverPosition(null);
+                  }}
+                  isDragging={draggedIndex === index}
+                />
+              </React.Fragment>
             ))}
           </div>
         </div>

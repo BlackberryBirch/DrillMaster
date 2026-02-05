@@ -5,11 +5,18 @@ import { getGridLines, pointToCanvas } from '../../utils/arena';
 import { GAIT_COLORS } from '../../types';
 import { useThemeStore } from '../../stores/themeStore';
 
+export const DRAG_DATA_KEY = 'application/x-frame-index';
+
 interface FrameThumbnailProps {
   frame: Frame;
   index: number;
   isSelected: boolean;
   onClick: () => void;
+  /** Enable drag-and-drop reorder (thumbnail is drag source only; drop targets are between frames) */
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  isDragging?: boolean;
 }
 
 const THUMBNAIL_WIDTH = 120;
@@ -20,6 +27,10 @@ export default function FrameThumbnail({
   index,
   isSelected,
   onClick,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
+  isDragging = false,
 }: FrameThumbnailProps) {
   const [canvasSize, setCanvasSize] = useState({ width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,13 +50,16 @@ export default function FrameThumbnail({
   return (
     <div
       ref={containerRef}
-      className={`flex-shrink-0 cursor-pointer border-2 rounded relative ${
+      className={`flex-shrink-0 cursor-pointer border-2 rounded relative select-none ${
         isSelected
-          ? 'border-blue-500 bg-blue-50'
-          : 'border-gray-300 bg-white hover:border-gray-400'
-      }`}
+          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+          : 'border-gray-300 bg-white dark:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-600'
+      } ${isDragging ? 'opacity-50' : ''}`}
       onClick={onClick}
       style={{ width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT }}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
     >
       <Stage width={canvasSize.width} height={canvasSize.height}>
         <Layer>

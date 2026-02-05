@@ -39,6 +39,7 @@ interface DrillStore {
   createNewDrill: (name: string) => void;
   addFrame: () => void;
   deleteFrame: (frameId: string) => void;
+  reorderFrames: (fromIndex: number, toIndex: number) => void;
   setCurrentFrame: (index: number) => void;
   updateFrame: (frameId: string, updates: Partial<Frame>) => void;
   addHorseToFrame: (frameId: string, horse: Horse) => void;
@@ -175,6 +176,43 @@ export const useDrillStore = create<DrillStore>()(
     });
   },
 
+  reorderFrames: (fromIndex, toIndex) => {
+    const { drill, currentFrameIndex } = get();
+    if (!drill || drill.frames.length <= 1) return;
+    if (fromIndex < 0 || fromIndex >= drill.frames.length) return;
+    if (toIndex < 0 || toIndex >= drill.frames.length) return;
+    if (fromIndex < toIndex) {
+      // If moving forward, decrement toIndex to account for the removed frame
+      toIndex--;
+    }
+    if (fromIndex === toIndex) return;
+
+    const previousDrill = JSON.parse(JSON.stringify(drill));
+    const newFrames = [...drill.frames];
+    const [removed] = newFrames.splice(fromIndex, 1);
+    newFrames.splice(toIndex, 0, removed);
+    const framesWithIndices = newFrames.map((frame, index) => ({ ...frame, index }));
+    const finalFrames = regenerateFrameTimestamps(framesWithIndices);
+    const currentFrameId = drill.frames[currentFrameIndex]?.id;
+    const newCurrentIndex = finalFrames.findIndex((f) => f.id === currentFrameId);
+    const safeNewIndex = newCurrentIndex >= 0 ? newCurrentIndex : Math.max(0, toIndex);
+
+    const newDrill = { ...drill, frames: finalFrames };
+    set({ drill: newDrill, currentFrameIndex: safeNewIndex });
+
+    const newDrillCopy = JSON.parse(JSON.stringify(newDrill));
+    useHistoryStore.getState().push({
+      description: 'Reorder frames',
+      undo: () => {
+        const { setDrill } = get();
+        setDrill(previousDrill, true, true);
+      },
+      redo: () => {
+        const { setDrill } = get();
+        setDrill(newDrillCopy, true, true);
+      },
+    });
+  },
 
   setCurrentFrame: (index) => {
     const { drill } = get();
