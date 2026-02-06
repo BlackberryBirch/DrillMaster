@@ -75,12 +75,11 @@ export default function HorseRenderer({
   canvasHeight,
 }: HorseRendererProps) {
   const theme = useThemeStore((state) => state.theme);
-  const horseFillColor =
-    theme === 'dark'
-      ? DARK_MODE_HORSE_COLOR
-      : useGaitColor
-        ? GAIT_COLORS[horse.speed]
-        : '#6B7280';
+  const baseFillColor =
+    useGaitColor ? GAIT_COLORS[horse.speed] : theme === 'dark'
+      ? DARK_MODE_HORSE_COLOR : '#6B7280';
+  const useSelectedStyle = isSelected || isHighlighted;
+  const horseFillColor = useSelectedStyle ? HORSE_RENDERING.SELECTED_FILL_COLOR : baseFillColor;
 
   // Track if an actual drag occurred (mouse moved after mousedown)
   const hasDraggedRef = React.useRef<boolean>(false);
@@ -290,8 +289,8 @@ export default function HorseRenderer({
         scaleX={effectiveHorseLength / HORSE_PATH_VIEWBOX_WIDTH}
         scaleY={effectiveHorseWidth / HORSE_PATH_VIEWBOX_HEIGHT}
         fill={horseFillColor}
-        stroke={isHighlighted ? '#F59E0B' : isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
-        strokeWidth={isHighlighted ? 4 : isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
+        stroke={useSelectedStyle ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
+        strokeWidth={useSelectedStyle ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
         opacity={HORSE_RENDERING.OPACITY}
       />
 

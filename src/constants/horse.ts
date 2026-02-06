@@ -34,7 +34,8 @@ export const ARROW_HANDLE_RADIUS = 8; // Pixels - invisible handle size for arro
  * Horse rendering visual constants
  */
 export const HORSE_RENDERING = {
-  SELECTED_STROKE_COLOR: '#F97316',
+  SELECTED_STROKE_COLOR: '#2563EB', // Blue-600 stroke when selected
+  SELECTED_FILL_COLOR: '#3B82F6',   // Blue-500 fill when selected
   DEFAULT_STROKE_COLOR: '#000000',
   SELECTED_STROKE_WIDTH: 3,
   DEFAULT_STROKE_WIDTH: 1,

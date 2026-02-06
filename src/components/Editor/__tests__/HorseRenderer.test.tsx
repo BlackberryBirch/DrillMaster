@@ -24,10 +24,10 @@ describe('HorseRenderer', () => {
       />
     );
     
-    // Should render ellipses (body and head) and path (tail)
-    const ellipses = getAllByTestId('ellipse');
-    expect(ellipses.length).toBeGreaterThan(0);
-    expect(getAllByTestId('path').length).toBeGreaterThan(0);
+    // Should render path (horse silhouette from Horse.svg) and text (label)
+    const paths = getAllByTestId('path');
+    expect(paths.length).toBeGreaterThan(0);
+    expect(getAllByTestId('text').length).toBeGreaterThan(0);
   });
 
   it('should render horse label', () => {
