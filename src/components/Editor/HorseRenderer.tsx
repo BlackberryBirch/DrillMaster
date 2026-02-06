@@ -1,5 +1,5 @@
 import React from 'react';
-import { Group, Ellipse, Path, Text, Arrow, Circle } from 'react-konva';
+import { Group, Path, Text, Arrow, Circle } from 'react-konva';
 import { Horse, GAIT_COLORS, Gait } from '../../types';
 import { ARENA_LENGTH, ARENA_WIDTH } from '../../constants/arena';
 import {
@@ -9,8 +9,19 @@ import {
   ARROW_HANDLE_RADIUS,
   HORSE_RENDERING,
   HORSE_LABEL,
-  HORSE_BODY_RATIOS,
 } from '../../constants/horse';
+
+// Horse silhouette path from Horse.svg (viewBox -212.542 110.522 1065.969 365.187)
+const HORSE_PATH_DATA =
+  'M 537.951 216.807 C 585.024 226.56 761.181 257.962 761.181 257.962 L 822.974 254.781 L 804.582 274.782 C 821.156 290.366 810.048 341.702 802.224 332.451 L 816.372 355.108 L 763.78 345.13 C 631.285 354.036 543.305 376.883 536.417 383.699 C 495.712 423.974 428.589 422.705 371.408 412.258 C 324.677 430.605 256.642 429.395 193.429 433.026 C 138.091 436.204 94.694 427.276 49.836 423.107 C -5.129 433.835 -85.561 451.053 -134.944 401.671 C -190.914 345.702 -188.299 254.981 -136.579 203.27 C -91.151 157.837 -15.489 173.535 49.17 183.844 C 91.351 170.019 136.987 168.292 190.235 170.198 C 257.083 172.59 315.173 184.09 367.006 192.198 C 442.701 158.264 514.048 191.292 537.951 216.807 Z';
+const HORSE_PATH_VIEWBOX_WIDTH = 1065.969;
+const HORSE_PATH_VIEWBOX_HEIGHT = 365.187;
+const HORSE_PATH_VIEWBOX_CX = -212.542 + HORSE_PATH_VIEWBOX_WIDTH / 2;
+const HORSE_PATH_VIEWBOX_CY = 110.522 + HORSE_PATH_VIEWBOX_HEIGHT / 2;
+
+/** Horse fill color in dark mode (palomino) */
+const DARK_MODE_HORSE_COLOR = '#D4A84B';
+
 import {
   calculateDirectionAndSpeedFromDrag,
   calculateArrowEndPosition,
@@ -64,7 +75,12 @@ export default function HorseRenderer({
   canvasHeight,
 }: HorseRendererProps) {
   const theme = useThemeStore((state) => state.theme);
-  const horseFillColor = useGaitColor ? GAIT_COLORS[horse.speed] : '#6B7280';
+  const horseFillColor =
+    theme === 'dark'
+      ? DARK_MODE_HORSE_COLOR
+      : useGaitColor
+        ? GAIT_COLORS[horse.speed]
+        : '#6B7280';
 
   // Track if an actual drag occurred (mouse moved after mousedown)
   const hasDraggedRef = React.useRef<boolean>(false);
@@ -264,33 +280,15 @@ export default function HorseRenderer({
             onClick={onClick}
             onTap={onClick}
           >
-      {/* Horse Body - Main ellipse */}
-      <Ellipse
+      {/* Horse silhouette from Horse.svg */}
+      <Path
+        data={HORSE_PATH_DATA}
         x={0}
         y={0}
-        radiusX={effectiveHorseLength / 2}
-        radiusY={effectiveHorseWidth / 2}
-        fill={horseFillColor}
-        stroke={isHighlighted ? '#F59E0B' : isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
-        strokeWidth={isHighlighted ? 4 : isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
-        opacity={HORSE_RENDERING.OPACITY}
-      />
-
-      {/* Horse Head - Smaller ellipse at front */}
-      <Ellipse
-        x={effectiveHorseLength / 2 - effectiveHorseLength * HORSE_BODY_RATIOS.HEAD_OFFSET}
-        y={0}
-        radiusX={effectiveHorseLength * HORSE_BODY_RATIOS.HEAD_RADIUS_X}
-        radiusY={effectiveHorseWidth * HORSE_BODY_RATIOS.HEAD_RADIUS_Y}
-        fill={horseFillColor}
-        stroke={isHighlighted ? '#F59E0B' : isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
-        strokeWidth={isHighlighted ? 4 : isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}
-        opacity={HORSE_RENDERING.OPACITY}
-      />
-
-      {/* Horse Tail - Small triangle at back */}
-      <Path
-        data={`M ${-effectiveHorseLength / 2},0 L ${-effectiveHorseLength / 2 - effectiveHorseLength * HORSE_BODY_RATIOS.TAIL_EXTENSION},${-effectiveHorseWidth * HORSE_BODY_RATIOS.TAIL_WIDTH} L ${-effectiveHorseLength / 2 - effectiveHorseLength * HORSE_BODY_RATIOS.TAIL_EXTENSION},${effectiveHorseWidth * HORSE_BODY_RATIOS.TAIL_WIDTH} Z`}
+        offsetX={HORSE_PATH_VIEWBOX_CX}
+        offsetY={HORSE_PATH_VIEWBOX_CY}
+        scaleX={effectiveHorseLength / HORSE_PATH_VIEWBOX_WIDTH}
+        scaleY={effectiveHorseWidth / HORSE_PATH_VIEWBOX_HEIGHT}
         fill={horseFillColor}
         stroke={isHighlighted ? '#F59E0B' : isSelected ? HORSE_RENDERING.SELECTED_STROKE_COLOR : HORSE_RENDERING.DEFAULT_STROKE_COLOR}
         strokeWidth={isHighlighted ? 4 : isSelected ? HORSE_RENDERING.SELECTED_STROKE_WIDTH : HORSE_RENDERING.DEFAULT_STROKE_WIDTH}

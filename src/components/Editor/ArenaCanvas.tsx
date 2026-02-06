@@ -11,6 +11,9 @@ import HorseRenderer from './HorseRenderer';
 import GroupSelectionControls from './GroupSelectionControls';
 import { useGroupTransformations } from '../../hooks/useGroupTransformations';
 
+/** Horse scale in player mode (150% for better visibility) */
+const PLAYER_MODE_HORSE_SCALE = 1.5;
+
 interface ArenaCanvasProps {
   width: number;
   height: number;
@@ -567,7 +570,7 @@ export default function ArenaCanvas({
             isSelected={isSelected}
             isHighlighted={isHighlighted}
             useGaitColor={!playerMode}
-            scale={playerMode ? 1.5 : 1}
+            scale={playerMode ? PLAYER_MODE_HORSE_SCALE : 1}
             showArrow={effectiveShowArrows}
             onDrag={(newX, newY) => handleHorseDragEnd(horse.id, newX, newY)}
             onDragStart={() => handleHorseDragStart(horse.id)}
