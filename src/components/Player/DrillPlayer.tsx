@@ -247,11 +247,11 @@ export default function DrillPlayer() {
       </header>
 
       {/* Main: arena + horse list */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 sm:flex-row">
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           <div
             ref={containerRef}
-            className="flex-1 overflow-hidden relative w-full min-h-0"
+            className="flex-1 overflow-hidden relative w-full min-h-0 min-h-[200px]"
             style={{ touchAction: 'none' }}
           >
             <Stage

@@ -199,7 +199,7 @@ export default function Home() {
             Equimotion Studio
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Create, edit, and animate equestrian drill show routines with precision and ease
+            Create, edit, and animate equestrian drill routines with precision and ease
           </p>
         </div>
 
