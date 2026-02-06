@@ -52,25 +52,35 @@ export const canvasToPoint = (
 };
 
 /**
- * Calculate arena dimensions based on container height only
- * Arena is always scaled to fit the height with 10px padding at top and bottom
- * and centered horizontally
+ * Calculate arena dimensions so the arena fits entirely in the container (centered).
+ * Uses padding on all sides and scales to fit both width and height.
  */
 export const calculateArenaDimensions = (
   containerWidth: number,
   containerHeight: number
 ): { width: number; height: number; offsetX: number; offsetY: number } => {
   const arenaAspect = ARENA_ASPECT_RATIO;
-  const VERTICAL_PADDING = 10; // 10px padding at top and bottom
+  const PADDING = 20; // px on all sides
 
-  // Scale based on height, accounting for 10px padding at top and bottom
-  const height = containerHeight - (VERTICAL_PADDING * 2);
-  const width = height * arenaAspect;
-  
-  // Center horizontally if arena is narrower than container
+  const availableWidth = Math.max(0, containerWidth - PADDING * 2);
+  const availableHeight = Math.max(0, containerHeight - PADDING * 2);
+
+  // Fit arena (aspect ratio length:width = 2:1) inside available area
+  const widthByHeight = availableHeight * arenaAspect;
+  const heightByWidth = availableWidth / arenaAspect;
+
+  let width: number;
+  let height: number;
+  if (widthByHeight <= availableWidth) {
+    width = widthByHeight;
+    height = availableHeight;
+  } else {
+    width = availableWidth;
+    height = heightByWidth;
+  }
+
   const offsetX = (containerWidth - width) / 2;
-  // Position with 10px padding at the top
-  const offsetY = VERTICAL_PADDING;
+  const offsetY = (containerHeight - height) / 2;
 
   return { width, height, offsetX, offsetY };
 };

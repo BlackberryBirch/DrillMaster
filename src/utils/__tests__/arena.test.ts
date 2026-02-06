@@ -51,34 +51,31 @@ describe('arena utilities', () => {
   });
 
   describe('calculateArenaDimensions', () => {
-    it('should scale based on height with 10px padding when container matches aspect ratio', () => {
+    it('should fit arena in container with 20px padding and center when container matches aspect ratio', () => {
       const result = calculateArenaDimensions(400, 200);
-      // Arena aspect ratio is 2:1 (length:width)
-      // Height has 10px padding top and bottom: height=200-20=180, width=180*2=360
-      expect(result.height).toBe(180);
-      expect(result.width).toBe(360);
-      expect(result.offsetX).toBe(20); // (400 - 360) / 2
-      expect(result.offsetY).toBe(10); // 10px top padding
+      // 20px padding: available 360x160. Fit 2:1: widthByHeight=320 <= 360 → width=320, height=160
+      expect(result.width).toBe(320);
+      expect(result.height).toBe(160);
+      expect(result.offsetX).toBe(40); // (400 - 320) / 2
+      expect(result.offsetY).toBe(20); // (200 - 160) / 2
     });
 
-    it('should scale based on height with 10px padding and center horizontally when container is taller', () => {
+    it('should fit arena entirely and center when container is taller (scale by width)', () => {
       const result = calculateArenaDimensions(200, 400);
-      // Height has 10px padding top and bottom: height=400-20=380, width=380*2=760
-      // Arena is wider than container, so it will be centered (may overflow)
-      expect(result.height).toBe(380);
-      expect(result.width).toBe(760);
-      expect(result.offsetX).toBe(-280); // (200 - 760) / 2
-      expect(result.offsetY).toBe(10); // 10px top padding
+      // 20px padding: available 160x360. widthByHeight=720 > 160 → scale by width: width=160, height=80
+      expect(result.width).toBe(160);
+      expect(result.height).toBe(80);
+      expect(result.offsetX).toBe(20); // (200 - 160) / 2
+      expect(result.offsetY).toBe(160); // (400 - 80) / 2
     });
 
-    it('should scale based on height with 10px padding and center when container is wider', () => {
+    it('should fit arena entirely and center when container is wider', () => {
       const result = calculateArenaDimensions(600, 200);
-      // Height has 10px padding top and bottom: height=200-20=180, width=180*2=360
-      // Arena is narrower than container, so centered horizontally
-      expect(result.width).toBe(360);
-      expect(result.height).toBe(180);
-      expect(result.offsetX).toBe(120); // (600 - 360) / 2
-      expect(result.offsetY).toBe(10); // 10px top padding
+      // 20px padding: available 560x160. widthByHeight=320 <= 560 → width=320, height=160
+      expect(result.width).toBe(320);
+      expect(result.height).toBe(160);
+      expect(result.offsetX).toBe(140); // (600 - 320) / 2
+      expect(result.offsetY).toBe(20); // (200 - 160) / 2
     });
   });
 
