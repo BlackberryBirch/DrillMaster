@@ -199,7 +199,7 @@ export default function DrillPlayer() {
 
   if (loading) {
     return (
-      <div className="w-full h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+      <div className="w-full h-dvh bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center text-gray-600 dark:text-gray-400">Loading drill…</div>
       </div>
     );
@@ -229,7 +229,7 @@ export default function DrillPlayer() {
   const arenaDims = calculateArenaDimensions(dimensions.width, dimensions.height);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex flex-col h-dvh bg-gray-100 dark:bg-gray-900">
       {/* Header */}
       <header className="flex-shrink-0 flex items-center gap-4 px-4 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
@@ -246,12 +246,12 @@ export default function DrillPlayer() {
         </button>
       </header>
 
-      {/* Main: arena + horse list (column on portrait, row on landscape) */}
-      <div className="flex-1 flex flex-col min-h-0 sm:flex-row">
+      {/* Main: arena + horse list */}
+      <div className="flex-1 flex min-h-0">
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           <div
             ref={containerRef}
-            className="flex-1 overflow-hidden relative w-full min-h-0 min-h-[200px]"
+            className="flex-1 overflow-hidden relative w-full min-h-0"
             style={{ touchAction: 'none' }}
           >
             <Stage
@@ -279,15 +279,15 @@ export default function DrillPlayer() {
           </div>
         </div>
 
-        {/* Horse list: below arena on portrait, right sidebar on landscape */}
-        <aside className="flex-shrink-0 w-full max-h-[35vh] sm:max-h-none sm:w-52 border-t border-gray-200 dark:border-gray-700 sm:border-l bg-white dark:bg-gray-800 overflow-y-auto flex flex-col">
+        {/* Horse list sidebar */}
+        <aside className="w-52 flex-shrink-0 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto flex flex-col">
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">Highlight horse</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               Click a label to highlight on the arena
             </p>
           </div>
-          <ul className="p-2 flex-1 min-h-0">
+          <ul className="p-2 flex-1">
             {sortedHorseLabels.length === 0 ? (
               <li className="text-sm text-gray-500 dark:text-gray-400 py-2">No horses</li>
             ) : (
