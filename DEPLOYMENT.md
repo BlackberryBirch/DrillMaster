@@ -1,6 +1,6 @@
 # Cloud Deployment Guide
 
-This guide will help you deploy the Horse Show Editor to various cloud hosting platforms.
+This guide will help you deploy Equimotion Studio to various cloud hosting platforms.
 
 ## Quick Start - Recommended Platforms
 
@@ -82,7 +82,14 @@ vercel env add VITE_SUPABASE_ANON_KEY
 vercel --prod
 ```
 
-#### Step 3: Configure Custom Domain (Optional)
+#### Step 3: Player links and Deployment Protection
+Shareable player links (`/play/:token`) must be reachable without a login. If you have **Vercel Deployment Protection** (Vercel Authentication or Password Protection) enabled:
+
+- **Standard Protection** (default): Only **Production Custom Domains** are exempt. The default `*.vercel.app` URL will require a Vercel login.
+- **Fix:** Add a **Production Custom Domain** to your project (e.g. `yourapp.com`). Traffic to that domain is not protected, so `https://yourapp.com/play/xxx` will load without forcing a login. Share player links using your custom domain, not the `*.vercel.app` URL.
+- If you use **All Deployments** protection (Pro/Enterprise), every URL is protected; use **Deployment Protection Exceptions** (Pro add-on or Enterprise) to allow a domain, or switch to Standard Protection and use a custom domain for production.
+
+#### Step 4: Configure Custom Domain (Optional)
 1. In Vercel dashboard → Settings → Domains
 2. Add your domain
 3. Follow DNS configuration instructions

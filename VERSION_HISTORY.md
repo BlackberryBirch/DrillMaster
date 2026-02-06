@@ -1,6 +1,6 @@
 # Version History & Auto-Save Feature
 
-This document describes the auto-save and version history feature that has been added to the Horse Show Editor.
+This document describes the auto-save and version history feature that has been added to Equimotion Studio.
 
 ## Overview
 

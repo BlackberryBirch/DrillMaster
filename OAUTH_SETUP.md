@@ -1,6 +1,6 @@
 # OAuth Provider Setup Guide
 
-This guide explains how to configure third-party authentication providers (OAuth) for the Horse Show Editor.
+This guide explains how to configure third-party authentication providers (OAuth) for Equimotion Studio.
 
 ## Supported Providers
 
@@ -54,7 +54,7 @@ The app supports the following OAuth providers:
 1. **Create GitHub OAuth App**:
    - Go to [GitHub Developer Settings](https://github.com/settings/developers)
    - Click **New OAuth App**
-   - **Application name**: "Horse Show Editor" (or your app name)
+   - **Application name**: "Equimotion Studio" (or your app name)
    - **Homepage URL**: Your app URL
    - **Authorization callback URL**: `https://[your-project-ref].supabase.co/auth/v1/callback`
    - Click **Register application**

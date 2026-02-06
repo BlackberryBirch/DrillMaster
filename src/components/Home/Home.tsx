@@ -196,7 +196,7 @@ export default function Home() {
         <div className="text-center mb-12">
           <Logo size={120} className="justify-center mb-6" />
           <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Horse Show Editor
+            Equimotion Studio
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             Create, edit, and animate equestrian drill show routines with precision and ease

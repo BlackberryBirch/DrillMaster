@@ -1,4 +1,4 @@
-# Equestrian Drill Show IDE
+# Equimotion Studio
 
 A web-based Integrated Development Environment for creating, editing, and animating equestrian drill show routines.
 

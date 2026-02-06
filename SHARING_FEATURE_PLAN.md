@@ -3,6 +3,13 @@
 ## Overview
 Allow anonymous users to view a specific revision of a drill when the owner provides them with a shareable link. This feature will enable read-only access to drills without requiring authentication.
 
+### Implemented behavior (current)
+- **Named versions only**: Share links can be created only for versions that have a `version_label` (named saves). Auto-saved versions cannot be shared.
+- **Share from Version History**: The owner opens Version History (📜 History), then clicks **Share** on a named version. A dialog opens with:
+  - **Checkbox "Create new share token"**: When checked, the next Generate creates a new token and invalidates the previous link. When unchecked, Generate returns or creates a single link for that version.
+  - **Generate link** / **Generate new link**: Creates or retrieves the player URL. The link is shown and can be copied; anyone with the link can open the drill in player mode without signing in.
+- **Player route**: `/play/:token` loads the drill by share token (no auth) and shows the player UI (when implemented).
+
 ## Current Architecture Analysis
 
 ### Existing Components
@@ -694,5 +701,6 @@ CREATE INDEX IF NOT EXISTS idx_share_links_drill_version ON share_links(drill_id
 5. **Email Sharing**: Send share links via email
 6. **Embedding**: Allow embedding shared drills in other websites
 7. **Download Restrictions**: Control whether viewers can download the drill
+
 
 

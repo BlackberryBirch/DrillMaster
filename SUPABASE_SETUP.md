@@ -1,6 +1,6 @@
 # Supabase Setup Guide
 
-This guide will help you set up Supabase for cloud storage and authentication in the Horse Show Editor.
+This guide will help you set up Supabase for cloud storage and authentication in Equimotion Studio.
 
 ## Step 1: Create a Supabase Project
 

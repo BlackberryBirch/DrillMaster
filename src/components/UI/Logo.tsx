@@ -39,7 +39,7 @@ export default function Logo({ className = '', size = 32, showText = false }: Lo
       </svg>
       {(showText || size > 60) && (
         <span className={`text-lg font-bold text-gray-900 dark:text-gray-100 ${size > 60 ? 'text-2xl' : ''}`}>
-          Horse Show Editor
+          Equimotion Studio
         </span>
       )}
     </div>
