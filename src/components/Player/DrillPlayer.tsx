@@ -10,6 +10,7 @@ import { useAudio } from '../../hooks/useAudio';
 import { calculateArenaDimensions } from '../../utils/arena';
 import ArenaCanvas from '../Editor/ArenaCanvas';
 import AnimationControls from '../Animation/AnimationControls';
+import { Moon, Sun } from 'lucide-react';
 
 function getDistance(touch1: Touch, touch2: Touch): number {
   const dx = touch2.clientX - touch1.clientX;
@@ -242,7 +243,7 @@ export default function DrillPlayer() {
           title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
         >
-          {theme === 'light' ? '🌙' : '☀️'}
+          {theme === 'light' ? <Moon className="w-4 h-4" aria-hidden /> : <Sun className="w-4 h-4" aria-hidden />}
         </button>
       </header>
 

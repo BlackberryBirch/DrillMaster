@@ -6,6 +6,7 @@ import { storageService } from '../../services/storageService';
 import { CloudStorageAdapter } from '../../utils/cloudStorage';
 import { JSONFileFormatAdapter } from '../../utils/fileIO';
 import UploadProgressModal from './UploadProgressModal';
+import { Volume2, VolumeX, Music, Trash2 } from 'lucide-react';
 
 const cloudAdapter = new CloudStorageAdapter(new JSONFileFormatAdapter());
 
@@ -128,10 +129,11 @@ export default function AudioControl() {
       <button
         ref={audioButtonRef}
         onClick={() => setShowAudioPopup(!showAudioPopup)}
-        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center"
         title="Audio Settings"
+        aria-label="Audio settings"
       >
-        {isMuted ? '🔇' : '🔊'}
+        {isMuted ? <VolumeX className="w-4 h-4" aria-hidden /> : <Volume2 className="w-4 h-4" aria-hidden />}
       </button>
       
       {showAudioPopup && (
@@ -168,19 +170,21 @@ export default function AudioControl() {
               <button
                 onClick={handleLoadAudio}
                 disabled={!drill}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed text-sm"
+                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed text-sm flex items-center gap-2"
                 title="Load audio file"
               >
-                🎵 Load Audio
+                <Music className="w-4 h-4 flex-shrink-0" aria-hidden />
+                Load Audio
               </button>
             )}
             {drill?.audioTrack && (
               <button
                 onClick={() => removeAudioTrack().catch(console.error)}
-                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm flex items-center gap-2"
                 title="Remove audio track"
               >
-                🗑️ Remove Audio
+                <Trash2 className="w-4 h-4 flex-shrink-0" aria-hidden />
+                Remove Audio
               </button>
             )}
           </div>

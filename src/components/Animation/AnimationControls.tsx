@@ -92,8 +92,50 @@ export default function AnimationControls({ hideAudio = false }: AnimationContro
     };
   }, [showSpeedPopup]);
 
-  return (
-    <div className="px-4 py-2 flex items-center gap-4">
+  const timelineSection = (
+    <div className="flex-1 w-full min-w-0 sm:order-2 sm:mx-4">
+      <div
+        className="h-2 bg-gray-300 dark:bg-gray-600 rounded-full relative cursor-pointer"
+        onClick={(e) => {
+          if (!drill || drill.frames.length === 0) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const percentage = clickX / rect.width;
+
+          const totalDuration = drill.frames.reduce((sum, frame) => sum + frame.duration, 0);
+          const newTime = Math.max(0, Math.min(totalDuration, percentage * totalDuration));
+          setCurrentTime(newTime);
+
+          if (state === 'paused' || state === 'stopped') {
+            const frameIndex = findFrameIndexFromTime(newTime);
+            if (frameIndex !== null) {
+              setCurrentFrame(frameIndex);
+            }
+          }
+        }}
+      >
+        <div
+          className="h-full bg-blue-500 rounded-full transition-all duration-100"
+          style={{
+            width: drill && drill.frames.length > 0
+              ? (() => {
+                  const totalDuration = drill.frames.reduce((sum, frame) => sum + frame.duration, 0);
+                  return totalDuration > 0 ? `${(currentTime / totalDuration) * 100}%` : '0%';
+                })()
+              : '0%',
+          }}
+        />
+      </div>
+      {drill && drill.frames.length > 0 && (
+        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 text-center">
+          {currentTime.toFixed(1)}s / {drill.frames.reduce((sum, frame) => sum + frame.duration, 0).toFixed(1)}s
+        </div>
+      )}
+    </div>
+  );
+
+  const controlsSection = (
+    <div className="flex flex-wrap items-center gap-2 sm:order-1">
       {/* Playback Controls */}
       <div className="flex items-center gap-2">
         <button
@@ -135,7 +177,7 @@ export default function AnimationControls({ hideAudio = false }: AnimationContro
         >
           {playbackSpeed}x
         </button>
-        
+
         {showSpeedPopup && (
           <div
             ref={speedPopupRef}
@@ -162,49 +204,13 @@ export default function AnimationControls({ hideAudio = false }: AnimationContro
 
       {/* Audio Controls - hidden in player */}
       {!hideAudio && <AudioControl />}
+    </div>
+  );
 
-      {/* Timeline */}
-      <div className="flex-1 mx-4">
-        <div 
-          className="h-2 bg-gray-300 dark:bg-gray-600 rounded-full relative cursor-pointer"
-          onClick={(e) => {
-            if (!drill || drill.frames.length === 0) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const percentage = clickX / rect.width;
-            
-            // Calculate total duration
-            const totalDuration = drill.frames.reduce((sum, frame) => sum + frame.duration, 0);
-            const newTime = Math.max(0, Math.min(totalDuration, percentage * totalDuration));
-            setCurrentTime(newTime);
-            
-            // Update current frame index when playback is paused or stopped
-            if (state === 'paused' || state === 'stopped') {
-              const frameIndex = findFrameIndexFromTime(newTime);
-              if (frameIndex !== null) {
-                setCurrentFrame(frameIndex);
-              }
-            }
-          }}
-        >
-          <div
-            className="h-full bg-blue-500 rounded-full transition-all duration-100"
-            style={{
-              width: drill && drill.frames.length > 0
-                ? (() => {
-                    const totalDuration = drill.frames.reduce((sum, frame) => sum + frame.duration, 0);
-                    return totalDuration > 0 ? `${(currentTime / totalDuration) * 100}%` : '0%';
-                  })()
-                : '0%',
-            }}
-          />
-        </div>
-        {drill && drill.frames.length > 0 && (
-          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 text-center">
-            {currentTime.toFixed(1)}s / {drill.frames.reduce((sum, frame) => sum + frame.duration, 0).toFixed(1)}s
-          </div>
-        )}
-      </div>
+  return (
+    <div className="px-4 py-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+      {timelineSection}
+      {controlsSection}
     </div>
   );
 }

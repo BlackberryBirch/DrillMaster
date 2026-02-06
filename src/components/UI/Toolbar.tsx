@@ -5,6 +5,7 @@ import { useHistoryStore } from '../../stores/historyStore';
 import { useAuthStore } from '../../stores/authStore';
 import AuthButton from '../Auth/AuthButton';
 import Logo from './Logo';
+import { Settings, History, Moon, Sun, Save } from 'lucide-react';
 
 interface ToolbarProps {
   onTogglePropertiesPanel?: () => void;
@@ -70,14 +71,15 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
       {onTogglePropertiesPanel && (
         <button
           onClick={onTogglePropertiesPanel}
-          className={`px-3 py-1 rounded ${
+          className={`px-3 py-1 rounded flex items-center gap-2 ${
             showPropertiesPanel
               ? 'bg-blue-500 text-white hover:bg-blue-600'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
           }`}
           title="Toggle Properties Panel"
         >
-          ⚙️ Properties
+          <Settings className="w-4 h-4 flex-shrink-0" aria-hidden />
+          Properties
         </button>
       )}
       {user && drill && (
@@ -85,19 +87,21 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
           {onSaveVersion && (
             <button
               onClick={onSaveVersion}
-              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               title="Save a new named version"
+              aria-label="Save a new named version"
             >
-              Save
+              <Save className="w-4 h-4" aria-hidden />
             </button>
           )}
           {onOpenVersionHistory && (
             <button
               onClick={onOpenVersionHistory}
-              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center gap-2"
               title="View Version History"
             >
-              📜 History
+              <History className="w-4 h-4 flex-shrink-0" aria-hidden />
+              History
             </button>
           )}
         </>
@@ -105,10 +109,11 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
       <AuthButton />
       <button
         onClick={toggleTheme}
-        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center"
         title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
       >
-        {theme === 'light' ? '🌙' : '☀️'}
+        {theme === 'light' ? <Moon className="w-4 h-4" aria-hidden /> : <Sun className="w-4 h-4" aria-hidden />}
       </button>
     </div>
   );
