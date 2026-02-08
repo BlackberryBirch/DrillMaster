@@ -8,10 +8,11 @@ import PropertiesPanel from './PropertiesPanel';
 interface LayoutProps {
   onOpenVersionHistory?: () => void;
   onSaveVersion?: () => void;
+  onOpenPrintKeyFrames?: () => void;
   isSaving?: boolean;
 }
 
-export default function Layout({ onOpenVersionHistory, onSaveVersion, isSaving = false }: LayoutProps) {
+export default function Layout({ onOpenVersionHistory, onSaveVersion, onOpenPrintKeyFrames, isSaving = false }: LayoutProps) {
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(false);
 
   return (
@@ -22,6 +23,7 @@ export default function Layout({ onOpenVersionHistory, onSaveVersion, isSaving =
         showPropertiesPanel={showPropertiesPanel}
         onOpenVersionHistory={onOpenVersionHistory}
         onSaveVersion={onSaveVersion}
+        onOpenPrintKeyFrames={onOpenPrintKeyFrames}
         isSaving={isSaving}
       />
 

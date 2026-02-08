@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useDrillStore } from './stores/drillStore';
 import { useThemeStore } from './stores/themeStore';
@@ -9,6 +9,9 @@ import Home from './components/Home/Home';
 import DrillPlayer from './components/Player/DrillPlayer';
 import VersionHistory from './components/VersionHistory/VersionHistory';
 import SaveVersionDialog from './components/VersionHistory/SaveVersionDialog';
+import PrintKeyFramesDialog from './components/Print/PrintKeyFramesDialog';
+import KeyFramesPrintSheet from './components/Print/KeyFramesPrintSheet';
+import type { KeyFramesPrintLayout } from './components/Print/PrintKeyFramesDialog';
 import { CloudStorageAdapter } from './utils/cloudStorage';
 import { JSONFileFormatAdapter } from './utils/fileIO';
 import { useAutoSave } from './hooks/useAutoSave';
@@ -31,8 +34,16 @@ function DrillEditor() {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showAutoSavedVersions, setShowAutoSavedVersions] = useState(false);
   const [showSaveVersionDialog, setShowSaveVersionDialog] = useState(false);
+  const [showPrintKeyFramesDialog, setShowPrintKeyFramesDialog] = useState(false);
+  const [printKeyFramesLayout, setPrintKeyFramesLayout] = useState<KeyFramesPrintLayout | null>(null);
   const [databaseDrillId, setDatabaseDrillId] = useState<string | null>(null);
   const [isSavingVersion, setIsSavingVersion] = useState(false);
+  const printLandscapeStyleRef = useRef<HTMLStyleElement | null>(null);
+
+  const keyFrames = useMemo(
+    () => drill?.frames.filter((f) => f.isKeyFrame) ?? [],
+    [drill?.frames]
+  );
 
   // Enable auto-save when user is authenticated and drill exists
   const { isSaving, hasUnsavedChanges } = useAutoSave({
@@ -241,6 +252,44 @@ function DrillEditor() {
     }
   };
 
+  const handlePrintKeyFrames = (layout: KeyFramesPrintLayout) => {
+    setPrintKeyFramesLayout(layout);
+  };
+
+  useEffect(() => {
+    if (!printKeyFramesLayout || keyFrames.length === 0) return;
+
+    const cleanup = () => {
+      setPrintKeyFramesLayout(null);
+      if (printLandscapeStyleRef.current?.parentNode) {
+        printLandscapeStyleRef.current.remove();
+        printLandscapeStyleRef.current = null;
+      }
+    };
+
+    if (printKeyFramesLayout === '1-up-landscape') {
+      const style = document.createElement('style');
+      style.id = 'print-key-frames-landscape';
+      style.textContent = '@media print { @page { size: landscape; } }';
+      document.head.appendChild(style);
+      printLandscapeStyleRef.current = style;
+    }
+
+    const doPrint = () => {
+      window.print();
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
+    const t = requestAnimationFrame(() => {
+      requestAnimationFrame(doPrint);
+    });
+
+    return () => {
+      cancelAnimationFrame(t);
+      window.removeEventListener('afterprint', cleanup);
+    };
+  }, [printKeyFramesLayout, keyFrames.length]);
+
   if (loading) {
     return (
       <div className="w-full h-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
@@ -272,9 +321,10 @@ function DrillEditor() {
 
   return (
     <>
-      <Layout 
+      <Layout
         onOpenVersionHistory={() => setShowVersionHistory(true)}
         onSaveVersion={() => setShowSaveVersionDialog(true)}
+        onOpenPrintKeyFrames={() => setShowPrintKeyFramesDialog(true)}
         isSaving={isSaving || hasUnsavedChanges}
       />
       {databaseDrillId && (
@@ -293,6 +343,29 @@ function DrillEditor() {
         onSave={handleSaveVersion}
         isSaving={isSavingVersion}
       />
+      <PrintKeyFramesDialog
+        isOpen={showPrintKeyFramesDialog}
+        onClose={() => setShowPrintKeyFramesDialog(false)}
+        onPrint={handlePrintKeyFrames}
+        keyFrameCount={keyFrames.length}
+      />
+      {printKeyFramesLayout && keyFrames.length > 0 && (
+        <div
+          className="print-key-frames-root"
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: 0,
+            width: printKeyFramesLayout === '1-up-landscape' ? '297mm' : '210mm',
+            minHeight: printKeyFramesLayout === '1-up-landscape' ? '210mm' : '297mm',
+            visibility: 'hidden',
+            zIndex: -1,
+          }}
+          aria-hidden
+        >
+          <KeyFramesPrintSheet keyFrames={keyFrames} layout={printKeyFramesLayout} />
+        </div>
+      )}
     </>
   );
 }
