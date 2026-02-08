@@ -27,6 +27,7 @@ describe('FrameControls', () => {
     
     expect(screen.getByText('+ Add Frame')).toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /key frame/i })).toBeInTheDocument();
   });
 
   it('should disable add frame and delete when no frames exist', () => {

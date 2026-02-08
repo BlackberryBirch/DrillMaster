@@ -1,5 +1,5 @@
 import React from 'react';
-import { Group, Rect, Line } from 'react-konva';
+import { Group, Rect, Line, Text } from 'react-konva';
 import { useDrillStore } from '../../stores/drillStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useThemeStore } from '../../stores/themeStore';
@@ -282,6 +282,19 @@ export default function ArenaCanvas({
     }
   };
 
+  // Frame that is currently "active" for display (selected in editor, or at current time during playback)
+  // In player mode always use current time so the maneuver name matches the visible frame (playing, paused, or scrubbed).
+  const activeFrame = React.useMemo(() => {
+    if (!drill?.frames.length) return null;
+    if (playerMode || animationState === 'playing') {
+      const idx = drill.frames.findIndex(
+        (f) => animationTime >= f.timestamp && animationTime < f.timestamp + f.duration
+      );
+      return idx >= 0 ? drill.frames[idx] : drill.frames[0];
+    }
+    return currentFrame ?? null;
+  }, [drill, animationState, animationTime, currentFrame, playerMode]);
+
   // Get horses to display - use interpolated positions during animation
   // During playback, interpolate between frames for smooth animation
   // When stopped/paused, show exact frame positions
@@ -522,6 +535,23 @@ export default function ArenaCanvas({
           dash={[5, 5]}
         />
       ))}
+
+      {/* Maneuver name - just below the field when this frame is active */}
+      {activeFrame?.maneuverName && (
+        <Text
+          x={width / 2}
+          y={height + 14}
+          width={width}
+          text={activeFrame.maneuverName}
+          fontSize={14}
+          fontFamily="sans-serif"
+          fill={theme === 'dark' ? '#E5E7EB' : '#374151'}
+          align="center"
+          listening={false}
+          offsetX={width / 2}
+          offsetY={0}
+        />
+      )}
 
       {/* Selection Rectangle - editor mode only */}
       {!playerMode && selectionRect && (

@@ -51,19 +51,23 @@ export const canvasToPoint = (
   };
 };
 
+/** Extra space below the arena for the maneuver name label (font ~14px + padding). */
+const MANEUVER_LABEL_SPACE = 40;
+
 /**
  * Calculate arena dimensions so the arena fits entirely in the container (centered).
- * Uses padding on all sides and scales to fit both width and height.
+ * Uses padding on all sides and reserves space below the arena for the maneuver name.
  */
 export const calculateArenaDimensions = (
   containerWidth: number,
   containerHeight: number
 ): { width: number; height: number; offsetX: number; offsetY: number } => {
   const arenaAspect = ARENA_ASPECT_RATIO;
-  const PADDING = 20; // px on all sides
+  const PADDING = 20; // px on sides and top
+  const BOTTOM_PADDING = PADDING + MANEUVER_LABEL_SPACE; // extra room for maneuver name
 
   const availableWidth = Math.max(0, containerWidth - PADDING * 2);
-  const availableHeight = Math.max(0, containerHeight - PADDING * 2);
+  const availableHeight = Math.max(0, containerHeight - PADDING - BOTTOM_PADDING);
 
   // Fit arena (aspect ratio length:width = 2:1) inside available area
   const widthByHeight = availableHeight * arenaAspect;
@@ -80,7 +84,8 @@ export const calculateArenaDimensions = (
   }
 
   const offsetX = (containerWidth - width) / 2;
-  const offsetY = (containerHeight - height) / 2;
+  // Center arena in the area above the bottom reserve so the maneuver name stays visible
+  const offsetY = PADDING + (availableHeight - height) / 2;
 
   return { width, height, offsetX, offsetY };
 };

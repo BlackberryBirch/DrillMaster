@@ -73,6 +73,16 @@ export default function PropertiesPanel() {
                 className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded text-sm"
               />
             </div>
+            <div>
+              <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Maneuver name</label>
+              <input
+                type="text"
+                placeholder="e.g. Circle left, Line abreast"
+                value={currentFrame.maneuverName ?? ''}
+                onChange={(e) => updateFrame(currentFrame.id, { maneuverName: e.target.value || undefined })}
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded text-sm placeholder-gray-400 dark:placeholder-gray-500"
+              />
+            </div>
           </div>
         </div>
       )}

@@ -8,6 +8,7 @@ export default function Filmstrip() {
   const drill = useDrillStore((state) => state.drill);
   const currentFrameIndex = useDrillStore((state) => state.currentFrameIndex);
   const setCurrentFrame = useDrillStore((state) => state.setCurrentFrame);
+  const updateFrame = useDrillStore((state) => state.updateFrame);
   const reorderFrames = useDrillStore((state) => state.reorderFrames);
   const setCurrentTime = useAnimationStore((state) => state.setCurrentTime);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -177,6 +178,9 @@ export default function Filmstrip() {
                     if (justDropped) return;
                     setCurrentFrame(index);
                     setCurrentTime(frame.timestamp);
+                  }}
+                  onToggleKeyFrame={() => {
+                    updateFrame(frame.id, { isKeyFrame: !frame.isKeyFrame });
                   }}
                   draggable={drill.frames.length > 1}
                   onDragStart={(e) => {

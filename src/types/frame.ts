@@ -6,6 +6,10 @@ export interface Frame {
   timestamp: number; // seconds from start
   horses: Horse[];
   duration: number; // seconds until next frame
+  /** When true, this frame is marked as a key frame (e.g. for printing or maneuver names). */
+  isKeyFrame?: boolean;
+  /** Optional name for the maneuver at this frame (e.g. "Circle left", "Line abreast"). Shown on the arena when the frame is active. */
+  maneuverName?: string;
 }
 
 export const createFrame = (
@@ -19,5 +23,6 @@ export const createFrame = (
   timestamp,
   horses: [],
   duration,
+  isKeyFrame: false,
 });
 

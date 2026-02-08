@@ -122,6 +122,8 @@ export const useDrillStore = create<DrillStore>()(
       id: generateId(),
       index: frameIndex + 1,
       timestamp: frameToDuplicate.timestamp + frameToDuplicate.duration,
+      isKeyFrame: false, // New duplicate is not a key frame unless user marks it
+      maneuverName: undefined, // New frame has no maneuver name until user sets it
       horses: frameToDuplicate.horses.map((h) => ({
         ...h,
         id: generateId(),

@@ -4,6 +4,7 @@ import { Frame } from '../../types';
 import { getGridLines, pointToCanvas } from '../../utils/arena';
 import { GAIT_COLORS } from '../../types';
 import { useThemeStore } from '../../stores/themeStore';
+import { Star } from 'lucide-react';
 
 export const DRAG_DATA_KEY = 'application/x-frame-index';
 
@@ -12,6 +13,8 @@ interface FrameThumbnailProps {
   index: number;
   isSelected: boolean;
   onClick: () => void;
+  /** Called when the key-frame star is clicked (stops propagation so selection does not change). */
+  onToggleKeyFrame?: (e: React.MouseEvent) => void;
   /** Enable drag-and-drop reorder (thumbnail is drag source only; drop targets are between frames) */
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -27,6 +30,7 @@ export default function FrameThumbnail({
   index,
   isSelected,
   onClick,
+  onToggleKeyFrame,
   draggable = false,
   onDragStart,
   onDragEnd,
@@ -126,6 +130,32 @@ export default function FrameThumbnail({
       <div className="absolute bottom-0 left-0 right-0 bg-black dark:bg-gray-900 bg-opacity-50 dark:bg-opacity-70 text-white text-xs text-center py-1">
         {index + 1}
       </div>
+      {onToggleKeyFrame ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleKeyFrame(e);
+          }}
+          className={`absolute top-1 right-1 p-0.5 transition-colors ${
+            frame.isKeyFrame
+              ? 'text-amber-500 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300'
+              : 'text-gray-400 dark:text-gray-500 hover:text-amber-500 dark:hover:text-amber-400'
+          }`}
+          title={frame.isKeyFrame ? 'Remove key frame' : 'Mark as key frame'}
+          aria-label={frame.isKeyFrame ? 'Remove key frame' : 'Mark as key frame'}
+        >
+          <Star className="w-3.5 h-3.5" fill="currentColor" stroke="currentColor" strokeWidth={1} />
+        </button>
+      ) : frame.isKeyFrame ? (
+        <div
+          className="absolute top-1 right-1 p-0.5 text-amber-500 dark:text-amber-400"
+          title="Key frame"
+          aria-hidden
+        >
+          <Star className="w-3.5 h-3.5" fill="currentColor" stroke="currentColor" strokeWidth={1} />
+        </div>
+      ) : null}
     </div>
   );
 }
