@@ -173,8 +173,49 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
   }
 
   getFileExtension(): string {
-    return '.drill.json';
+    return '.drill';
   }
+}
+
+/** Magic bytes at the start of every .drill file (ASCII "EQDR" = Equimotion Drill) */
+export const DRILL_FILE_MAGIC = new Uint8Array([0x45, 0x51, 0x44, 0x52]);
+
+function isDrillFile(file: File): boolean {
+  return file.name.toLowerCase().endsWith('.drill') || file.name.toLowerCase().endsWith('.drill.gz');
+}
+
+/**
+ * Compress a string with gzip using the Compression Streams API.
+ * .drill files are always gzip-compressed; requires a supporting browser.
+ */
+async function gzipCompress(data: string): Promise<Blob> {
+  if (typeof CompressionStream === 'undefined') {
+    throw new Error('Saving .drill files requires a browser that supports CompressionStream');
+  }
+  const blob = new Blob([data], { type: 'application/json' });
+  const stream = blob.stream().pipeThrough(new CompressionStream('gzip'));
+  return await new Response(stream).blob();
+}
+
+/**
+ * Decompress gzip bytes to a string using the Decompression Streams API.
+ */
+async function gzipDecompress(buffer: ArrayBuffer): Promise<string> {
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('Compressed drill files require a browser that supports DecompressionStream');
+  }
+  const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const blob = await new Response(stream).blob();
+  return await blob.text();
+}
+
+function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 /**
@@ -191,13 +232,22 @@ export class FileIO {
     this.adapter = adapter;
   }
 
-  async saveDrill(drill: Drill, filename?: string): Promise<void> {
+  /** Default extension for .drill files (MAGIC + gzip, persistence version inside JSON) */
+  getCompressedExtension(): string {
+    return '.drill';
+  }
+
+  /**
+   * Save drill as a compressed file (gzip). The file includes the same JSON structure
+   * with version (persistence version), so it is self-describing.
+   */
+  async saveDrillCompressed(drill: Drill, filename?: string): Promise<void> {
     const data = this.adapter.serialize(drill);
-    const blob = new Blob([data], { type: 'application/json' });
+    const blob = await gzipCompress(data);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename || `${drill.name}${this.adapter.getFileExtension()}`;
+    link.download = filename || `${drill.name}${this.getCompressedExtension()}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -205,20 +255,22 @@ export class FileIO {
   }
 
   async loadDrill(file: File): Promise<Drill> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result as string;
-          const drill = this.adapter.deserialize(data);
-          resolve(drill);
-        } catch (error) {
-          reject(new Error(`Failed to load drill: ${error}`));
-        }
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsText(file);
-    });
+    if (!isDrillFile(file)) {
+      throw new Error('Only .drill files are supported. Use a file with extension .drill or .drill.gz');
+    }
+    const buffer = await readFileAsArrayBuffer(file);
+    if (buffer.byteLength < DRILL_FILE_MAGIC.length) {
+      throw new Error('Invalid .drill file: too short');
+    }
+    const bytes = new Uint8Array(buffer, 0, DRILL_FILE_MAGIC.length);
+    for (let i = 0; i < DRILL_FILE_MAGIC.length; i++) {
+      if (bytes[i] !== DRILL_FILE_MAGIC[i]) {
+        throw new Error('Invalid .drill file: missing or incorrect magic header');
+      }
+    }
+    const gzipPayload = buffer.slice(DRILL_FILE_MAGIC.length);
+    const data = await gzipDecompress(gzipPayload);
+    return this.adapter.deserialize(data);
   }
 }
 

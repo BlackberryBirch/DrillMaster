@@ -30,7 +30,7 @@ export class CloudStorageAdapter implements FileFormatAdapter {
   }
 
   getFileExtension(): string {
-    return '.drill.json';
+    return '.drill';
   }
 
   /**

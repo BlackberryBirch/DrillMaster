@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { JSONFileFormatAdapter, FileIO } from '../fileIO';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
+import { gzipSync, gunzipSync } from 'zlib';
+import { JSONFileFormatAdapter, FileIO, DRILL_FILE_MAGIC } from '../fileIO';
 import { createDrill, createFrame } from '../../types';
 import { generateId } from '../uuid';
 
@@ -291,7 +292,7 @@ describe('JSONFileFormatAdapter', () => {
 
   describe('getFileExtension', () => {
     it('should return correct file extension', () => {
-      expect(adapter.getFileExtension()).toBe('.drill.json');
+      expect(adapter.getFileExtension()).toBe('.drill');
     });
   });
 });
@@ -304,6 +305,87 @@ describe('FileIO', () => {
   let mockRemoveChild: ReturnType<typeof vi.fn>;
   let mockCreateObjectURL: ReturnType<typeof vi.fn>;
   let mockRevokeObjectURL: ReturnType<typeof vi.fn>;
+
+  beforeAll(() => {
+    if (typeof Blob !== 'undefined' && !Blob.prototype.stream) {
+      Blob.prototype.stream = function (this: Blob) {
+        const blob = this;
+        return new ReadableStream({
+          start(controller: ReadableStreamDefaultController<Uint8Array>) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              controller.enqueue(new Uint8Array(reader.result as ArrayBuffer));
+              controller.close();
+            };
+            reader.onerror = () => controller.error(reader.error ?? new Error('FileReader failed'));
+            reader.readAsArrayBuffer(blob);
+          },
+        });
+      };
+    }
+    if (typeof Blob !== 'undefined' && !Blob.prototype.text) {
+      Blob.prototype.text = function (this: Blob) {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsText(this);
+        });
+      };
+    }
+    if (typeof CompressionStream === 'undefined') {
+      (globalThis as unknown as { CompressionStream: unknown }).CompressionStream = class CompressionStream {
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream<Uint8Array>;
+        constructor(_format: string) {
+          const chunks: Uint8Array[] = [];
+          this.writable = new WritableStream({
+            write(chunk) {
+              chunks.push(chunk);
+            },
+            close() {
+              const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+              const out = gzipSync(buf);
+              readableController.enqueue(new Uint8Array(out));
+              readableController.close();
+            },
+          });
+          let readableController: ReadableStreamDefaultController<Uint8Array>;
+          this.readable = new ReadableStream({
+            start(c) {
+              readableController = c;
+            },
+          });
+        }
+      };
+    }
+    if (typeof DecompressionStream === 'undefined') {
+      (globalThis as unknown as { DecompressionStream: unknown }).DecompressionStream = class DecompressionStream {
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream<Uint8Array>;
+        constructor(_format: string) {
+          const chunks: Uint8Array[] = [];
+          this.writable = new WritableStream({
+            write(chunk) {
+              chunks.push(chunk);
+            },
+            close() {
+              const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+              const out = gunzipSync(buf);
+              decompressController.enqueue(new Uint8Array(out));
+              decompressController.close();
+            },
+          });
+          let decompressController: ReadableStreamDefaultController<Uint8Array>;
+          this.readable = new ReadableStream({
+            start(c) {
+              decompressController = c;
+            },
+          });
+        }
+      };
+    }
+  });
 
   beforeEach(() => {
     fileIO = new FileIO();
@@ -332,14 +414,14 @@ describe('FileIO', () => {
     vi.restoreAllMocks();
   });
 
-  describe('saveDrill', () => {
-    it('should create download link and trigger download', async () => {
+  describe('saveDrillCompressed', () => {
+    it('should create download link with .drill extension and trigger download', async () => {
       const drill = createDrill('test-id', 'Test Drill');
 
-      await fileIO.saveDrill(drill);
+      await fileIO.saveDrillCompressed(drill);
 
       expect(document.createElement).toHaveBeenCalledWith('a');
-      expect(mockLink.download).toBe('Test Drill.drill.json');
+      expect(mockLink.download).toBe('Test Drill.drill');
       expect(mockAppendChild).toHaveBeenCalled();
       expect(mockClick).toHaveBeenCalled();
       expect(mockRemoveChild).toHaveBeenCalled();
@@ -349,17 +431,37 @@ describe('FileIO', () => {
     it('should use custom filename when provided', async () => {
       const drill = createDrill('test-id', 'Test Drill');
 
-      await fileIO.saveDrill(drill, 'custom-name.drill.json');
+      await fileIO.saveDrillCompressed(drill, 'custom-name.drill');
 
-      expect(mockLink.download).toBe('custom-name.drill.json');
+      expect(mockLink.download).toBe('custom-name.drill');
     });
   });
 
   describe('loadDrill', () => {
-    it('should load drill from file', async () => {
+    it('should reject .drill.json files', async () => {
+      const file = new File(['{}'], 'test.drill.json', { type: 'application/json' });
+
+      await expect(fileIO.loadDrill(file)).rejects.toThrow('Only .drill files are supported');
+    });
+
+    it('should throw when .drill file has wrong magic header', async () => {
+      const file = new File([new Uint8Array([0, 0, 0, 0])], 'test.drill');
+
+      await expect(fileIO.loadDrill(file)).rejects.toThrow('missing or incorrect magic header');
+    });
+
+    it('should throw when .drill file is too short', async () => {
+      const file = new File([new Uint8Array([0x45, 0x51])], 'test.drill');
+
+      await expect(fileIO.loadDrill(file)).rejects.toThrow('too short');
+    });
+
+    it('should load drill from valid .drill file (magic + gzip)', async () => {
       const drill = createDrill('test-id', 'Test Drill');
-      const serialized = JSON.stringify({
-        version: '1.0.0',
+      const frame = createFrame(generateId(), 0, 0, 5.0);
+      drill.frames = [frame];
+      const fileContent = {
+        version: '1.1.0',
         format: 'drill-json',
         drill: {
           ...drill,
@@ -369,19 +471,19 @@ describe('FileIO', () => {
             modifiedAt: drill.metadata.modifiedAt.toISOString(),
           },
         },
-      });
+      };
+      const jsonString = JSON.stringify(fileContent);
+      const gzipBuffer = gzipSync(Buffer.from(jsonString, 'utf-8'));
+      const fullBuffer = new Uint8Array(DRILL_FILE_MAGIC.length + gzipBuffer.length);
+      fullBuffer.set(DRILL_FILE_MAGIC);
+      fullBuffer.set(gzipBuffer, DRILL_FILE_MAGIC.length);
+      const file = new File([fullBuffer], 'test.drill');
 
-      const file = new File([serialized], 'test.drill.json', { type: 'application/json' });
       const result = await fileIO.loadDrill(file);
 
       expect(result.id).toBe('test-id');
       expect(result.name).toBe('Test Drill');
-    });
-
-    it('should throw error for invalid file', async () => {
-      const file = new File(['invalid json'], 'test.drill.json', { type: 'application/json' });
-
-      await expect(fileIO.loadDrill(file)).rejects.toThrow();
+      expect(result.frames).toHaveLength(1);
     });
   });
 

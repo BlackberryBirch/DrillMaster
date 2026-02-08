@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useDrillStore } from '../../stores/drillStore';
 import { CloudStorageAdapter } from '../../utils/cloudStorage';
-import { JSONFileFormatAdapter } from '../../utils/fileIO';
+import { fileIO, JSONFileFormatAdapter } from '../../utils/fileIO';
 import AuthModal from '../Auth/AuthModal';
 import Logo from '../UI/Logo';
 import { format } from 'date-fns';
@@ -29,6 +29,9 @@ export default function Home() {
   const [drillsLoading, setDrillsLoading] = useState(false);
   const [drillsError, setDrillsError] = useState<string | null>(null);
   const [isCreatingDrill, setIsCreatingDrill] = useState(false);
+  const [isUploadingDrill, setIsUploadingDrill] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const setDrill = useDrillStore((state) => state.setDrill);
 
   useEffect(() => {
     const loadDrills = async () => {
@@ -159,6 +162,28 @@ export default function Home() {
     setDrills([]);
   };
 
+  const handleUploadDrill = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    const name = file.name.toLowerCase();
+    const accepted = name.endsWith('.drill') || name.endsWith('.drill.gz');
+    if (!accepted) {
+      alert('Please choose a .drill file.');
+      return;
+    }
+    setIsUploadingDrill(true);
+    try {
+      const loadedDrill = await fileIO.loadDrill(file);
+      setDrill(loadedDrill, false, false);
+      navigate(`/drill/${loadedDrill.id}`, { state: { fromUpload: true } });
+    } catch (err) {
+      alert(`Failed to load drill: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsUploadingDrill(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col">
       {/* Header */}
@@ -211,15 +236,34 @@ export default function Home() {
         ) : user ? (
           /* Authenticated: Show drill list */
           <div className="w-full max-w-4xl">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Your Drills</h2>
-              <button
-                onClick={handleCreateNew}
-                disabled={isCreatingDrill}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isCreatingDrill ? 'Creating...' : '+ Create New Drill'}
-              </button>
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".drill,.drill.gz"
+                  className="hidden"
+                  aria-hidden
+                  onChange={handleUploadDrill}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingDrill}
+                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Upload a .drill file"
+                >
+                  {isUploadingDrill ? 'Uploading...' : 'Upload Drill'}
+                </button>
+                <button
+                  onClick={handleCreateNew}
+                  disabled={isCreatingDrill}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreatingDrill ? 'Creating...' : '+ Create New Drill'}
+                </button>
+              </div>
             </div>
 
             {drillsLoading ? (
@@ -235,13 +279,23 @@ export default function Home() {
                 <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">
                   You don't have any drills yet.
                 </p>
-                <button
-                  onClick={handleCreateNew}
-                  disabled={isCreatingDrill}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isCreatingDrill ? 'Creating...' : 'Create Your First Drill'}
-                </button>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingDrill}
+                    className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUploadingDrill ? 'Uploading...' : 'Upload Drill'}
+                  </button>
+                  <button
+                    onClick={handleCreateNew}
+                    disabled={isCreatingDrill}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCreatingDrill ? 'Creating...' : 'Create Your First Drill'}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

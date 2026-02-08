@@ -220,7 +220,7 @@ interface Point {
 - **Save**:
   - "Save As" dialog (native or custom)
   - Export to JSON format
-  - Filename: `[drill-name].drill.json`
+  - Filename: `[drill-name].drill` (compressed with magic header)
   - Include all drill data, metadata, and audio reference
   
 - **Load**:

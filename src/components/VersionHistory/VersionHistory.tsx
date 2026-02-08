@@ -4,7 +4,7 @@ import { DrillVersionRecord } from '../../types/database';
 import { Drill } from '../../types/drill';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
-import { JSONFileFormatAdapter } from '../../utils/fileIO';
+import { JSONFileFormatAdapter, fileIO } from '../../utils/fileIO';
 import ShareVersionDialog from './ShareVersionDialog';
 
 interface VersionHistoryProps {
@@ -157,6 +157,21 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore, sh
     }
   };
 
+  const handleDownload = async (version: DrillVersionRecord) => {
+    try {
+      let restoredDrill: Drill = version.drill_data;
+      const jsonAdapter = new JSONFileFormatAdapter();
+      restoredDrill = jsonAdapter.migrateCoordinates(restoredDrill);
+      restoredDrill.metadata.modifiedAt = new Date(restoredDrill.metadata.modifiedAt);
+      // Serialization omits audio url; storagePath/offset/filename are included in the file
+      const label = (version.version_label || `v${version.version_number}`).replace(/[^\w\s-]/g, '').trim() || `v${version.version_number}`;
+      const filename = `${restoredDrill.name}-${label}.drill`;
+      await fileIO.saveDrillCompressed(restoredDrill, filename);
+    } catch (err) {
+      alert(`Failed to download: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -256,6 +271,13 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore, sh
                           Share
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDownload(version)}
+                        className="px-3 py-1.5 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                        title="Download as compressed drill file (.drill)"
+                      >
+                        Download
+                      </button>
                       <button
                         onClick={() => handleRestore(version)}
                         disabled={restoring === version.id}

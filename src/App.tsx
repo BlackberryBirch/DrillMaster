@@ -20,6 +20,7 @@ const cloudAdapter = new CloudStorageAdapter(new JSONFileFormatAdapter());
 function DrillEditor() {
   const { id: drillId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const drill = useDrillStore((state) => state.drill);
   const setDrill = useDrillStore((state) => state.setDrill);
   const user = useAuthStore((state) => state.user);
@@ -103,6 +104,13 @@ function DrillEditor() {
         return;
       }
 
+      // Skip cloud load when drill was just opened from uploaded file (Home page)
+      const fromUpload = (location.state as { fromUpload?: boolean } | null)?.fromUpload;
+      if (fromUpload && drill && drill.id === drillId) {
+        loadedDrillIdRef.current = drillId;
+        return;
+      }
+
       // Skip if the drill is already in the store and matches the drillId
       if (drill && drill.id === drillId && loadedDrillIdRef.current === drillId) {
         return;
@@ -116,8 +124,14 @@ function DrillEditor() {
       try {
         const result = await cloudAdapter.loadDrillFromCloud(drillId);
         if (result.error) {
+          // If we already have this drill in store (e.g. from upload or persistence), keep it
+          if (drill && drill.id === drillId) {
+            setError(null);
+            setLoading(false);
+            isLoadingRef.current = false;
+            return;
+          }
           setError(result.error.message);
-          // If drill not found, redirect to home
           navigate('/', { replace: true });
           loadedDrillIdRef.current = null;
         } else if (result.data) {
@@ -149,7 +163,7 @@ function DrillEditor() {
 
     loadDrill();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drillId]); // Only depend on drillId to avoid infinite loops
+  }, [drillId, location.state]); // Only depend on drillId and upload state to avoid infinite loops
 
 
   // Update URL when drill is saved to cloud (drill.id changes)

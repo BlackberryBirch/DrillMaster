@@ -14,7 +14,7 @@ vi.mock('../../../utils/fileIO', () => ({
     serialize: vi.fn(),
     deserialize: vi.fn(),
     validate: vi.fn(),
-    getFileExtension: vi.fn(() => '.drill.json'),
+    getFileExtension: vi.fn(() => '.drill'),
   })),
 }));
 

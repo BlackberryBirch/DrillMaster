@@ -3,17 +3,19 @@
 ## Overview
 
 The drill file format is designed to be:
-- Human-readable (JSON)
-- Versioned for future compatibility
+- Versioned for future compatibility (persistence version inside payload)
 - Extensible for new features
 - Easily swappable via abstraction layer
 
-## Format: JSON (Default)
+**Supported file format**: `.drill` (or `.drill.gz`) only. Plain `.drill.json` is no longer supported.
 
-### File Extension
-`.drill.json`
+## .drill file layout
 
-### Structure
+- **Extension**: `.drill` or `.drill.gz`
+- **Layout**: 4-byte **magic header** (`EQDR` = 0x45 0x51 0x44 0x52) followed by **gzip-compressed** JSON.
+- **Payload**: After decompression, the content is JSON with the structure below. The `version` field is the **persistence version** (e.g. `1.1.0`) for migration and validation.
+
+### Payload structure (JSON inside .drill)
 
 ```json
 {
@@ -173,6 +175,12 @@ The drill file format is designed to be:
   - Real-world units (meters) for intuitive positioning
 - **Migration**: Files saved in version 1.0.0 (normalized 0-1 coordinates) are automatically migrated to meters from center when loaded
 
+## Compressed format (.drill)
+
+- **Extension**: `.drill` or `.drill.gz`
+- **Content**: Gzip-compressed JSON. The inner structure is the same as the JSON format (includes `version`, `format`, and `drill`). The `version` field is the **persistence version** (e.g. `1.1.0`) for migration and validation.
+- **Use**: Download from version history or upload from the home page. Supports smaller file sizes than `.drill.json`.
+
 ## Future Format Support
 
 The abstraction layer (`FileFormatAdapter`) allows for:
@@ -190,5 +198,5 @@ Files should be validated using:
 
 ## Example File
 
-See `examples/sample-drill.drill.json` (to be created during development)
+See `examples/sample-drill.drill` (to be created during development)
 
