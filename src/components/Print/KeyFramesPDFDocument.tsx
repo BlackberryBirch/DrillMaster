@@ -6,13 +6,7 @@ import {
   StyleSheet,
 } from '@react-pdf/renderer';
 import type { KeyFramesPrintLayout } from './PrintKeyFramesDialog';
-
-const CARDS_PER_PAGE: Record<KeyFramesPrintLayout, number> = {
-  '1-up-landscape': 1,
-  '2-up-portrait': 2,
-  '4-up-portrait': 4,
-  '9-up-portrait': 9,
-};
+import { CARDS_PER_PAGE } from './printLayoutConstants';
 
 const styles = StyleSheet.create({
   page: {

@@ -5,7 +5,7 @@ import { Frame } from '../types';
 import KeyFramePrintView from '../components/Print/KeyFramePrintView';
 import KeyFramesPDFDocument from '../components/Print/KeyFramesPDFDocument';
 import type { KeyFramesPrintLayout } from '../components/Print/PrintKeyFramesDialog';
-import { CARD_SIZE } from '../components/Print/KeyFramesPrintSheet';
+import { CARD_SIZE } from '../components/Print/printLayoutConstants';
 
 /** Captures a single key frame to a data URL by rendering it off-screen. */
 async function captureFrameToDataUrl(
