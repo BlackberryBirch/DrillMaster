@@ -263,17 +263,16 @@ function DrillEditor() {
       setPrintKeyFramesLayout(null);
       if (printLandscapeStyleRef.current?.parentNode) {
         printLandscapeStyleRef.current.remove();
-        printLandscapeStyleRef.current = null;
       }
+      printLandscapeStyleRef.current = null;
     };
 
-    if (printKeyFramesLayout === '1-up-landscape') {
-      const style = document.createElement('style');
-      style.id = 'print-key-frames-landscape';
-      style.textContent = '@media print { @page { size: landscape; } }';
-      document.head.appendChild(style);
-      printLandscapeStyleRef.current = style;
-    }
+    const style = document.createElement('style');
+    style.id = 'print-key-frames-page-orientation';
+    const isLandscape = printKeyFramesLayout === '1-up-landscape';
+    style.textContent = `@media print { @page { size: A4 ${isLandscape ? 'landscape' : 'portrait'}; } }`;
+    document.head.appendChild(style);
+    printLandscapeStyleRef.current = style;
 
     const doPrint = () => {
       window.print();
@@ -349,15 +348,22 @@ function DrillEditor() {
         onPrint={handlePrintKeyFrames}
         keyFrameCount={keyFrames.length}
       />
-      {printKeyFramesLayout && keyFrames.length > 0 && (
+      {printKeyFramesLayout && keyFrames.length > 0 && (() => {
+        const n = keyFrames.length;
+        const is1UpLandscape = printKeyFramesLayout === '1-up-landscape';
+        const pages = is1UpLandscape ? n : Math.ceil(n / (printKeyFramesLayout === '2-up-portrait' ? 2 : printKeyFramesLayout === '4-up-portrait' ? 4 : 9));
+        const pageHeightMm = is1UpLandscape ? 210 : 297;
+        const totalHeightMm = pages * pageHeightMm;
+        return (
         <div
           className="print-key-frames-root"
           style={{
             position: 'fixed',
             left: '-9999px',
             top: 0,
-            width: printKeyFramesLayout === '1-up-landscape' ? '297mm' : '210mm',
-            minHeight: printKeyFramesLayout === '1-up-landscape' ? '210mm' : '297mm',
+            width: is1UpLandscape ? '297mm' : '210mm',
+            minHeight: is1UpLandscape ? '210mm' : '297mm',
+            height: `${totalHeightMm}mm`,
             visibility: 'hidden',
             zIndex: -1,
           }}
@@ -365,7 +371,8 @@ function DrillEditor() {
         >
           <KeyFramesPrintSheet keyFrames={keyFrames} layout={printKeyFramesLayout} />
         </div>
-      )}
+        );
+      })()}
     </>
   );
 }

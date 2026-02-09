@@ -53,8 +53,8 @@ export default function KeyFramesPrintSheet({ keyFrames, layout }: KeyFramesPrin
             gap: 8,
             padding: 12,
             boxSizing: 'border-box',
-            width: layout === '1-up-landscape' ? '100%' : '210mm',
-            height: layout === '1-up-landscape' ? '100%' : '297mm',
+            width: layout === '1-up-landscape' ? '297mm' : '210mm',
+            height: layout === '1-up-landscape' ? '210mm' : '297mm',
             minHeight: layout === '2-up-portrait' ? '297mm' : layout === '4-up-portrait' || layout === '9-up-portrait' ? '297mm' : undefined,
           }}
         >

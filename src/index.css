@@ -46,6 +46,9 @@ body {
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
     z-index: 9999 !important;
   }
   .print-page {
