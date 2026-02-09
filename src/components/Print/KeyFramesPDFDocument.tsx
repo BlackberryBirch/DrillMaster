@@ -18,7 +18,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   frameWrapper: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -51,6 +50,7 @@ export default function KeyFramesPDFDocument({
   const isLandscape = layout === '1-up-landscape';
   const cols = layout === '1-up-landscape' ? 1 : layout === '2-up-portrait' ? 1 : layout === '4-up-portrait' ? 2 : layout === '9-up-portrait' ? 3 : 4;
   const rows = layout === '1-up-landscape' ? 1 : layout === '2-up-portrait' ? 2 : layout === '4-up-portrait' ? 2 : layout === '9-up-portrait' ? 3 : 4;
+  const cellWidthPercent = 100 / cols;
 
   return (
     <Document>
@@ -67,10 +67,19 @@ export default function KeyFramesPDFDocument({
                 {Array.from({ length: cols }).map((_, colIndex) => {
                   const i = rowIndex * cols + colIndex;
                   const dataUrl = pageImages[i];
-                  if (!dataUrl) return null;
                   return (
-                    <View key={i} style={styles.frameWrapper}>
-                      <Image src={dataUrl} style={styles.frameImage} />
+                    <View
+                      key={i}
+                      style={[
+                        styles.frameWrapper,
+                        {
+                          width: `${cellWidthPercent}%`,
+                          flexGrow: 0,
+                          flexShrink: 0,
+                        },
+                      ]}
+                    >
+                      {dataUrl && <Image src={dataUrl} style={styles.frameImage} />}
                     </View>
                   );
                 })}

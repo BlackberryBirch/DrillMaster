@@ -7,12 +7,17 @@ import KeyFramesPDFDocument from '../components/Print/KeyFramesPDFDocument';
 import type { KeyFramesPrintLayout } from '../components/Print/PrintKeyFramesDialog';
 import { CARD_SIZE, ROTATED_ARENA_LAYOUTS } from '../components/Print/printLayoutConstants';
 
+/** Scale factor for PDF export - renders at higher resolution for better print quality. */
+const PDF_EXPORT_SCALE = 3;
+
 /** Captures a single key frame to a data URL by rendering it off-screen. */
 async function captureFrameToDataUrl(
   frame: Frame,
   layout: KeyFramesPrintLayout
 ): Promise<string> {
-  const { width, height } = CARD_SIZE[layout];
+  const baseSize = CARD_SIZE[layout];
+  const width = Math.round(baseSize.width * PDF_EXPORT_SCALE);
+  const height = Math.round(baseSize.height * PDF_EXPORT_SCALE);
   const container = document.createElement('div');
   container.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;';
   document.body.appendChild(container);

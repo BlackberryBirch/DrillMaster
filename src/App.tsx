@@ -10,7 +10,8 @@ import DrillPlayer from './components/Player/DrillPlayer';
 import VersionHistory from './components/VersionHistory/VersionHistory';
 import SaveVersionDialog from './components/VersionHistory/SaveVersionDialog';
 import PrintKeyFramesDialog from './components/Print/PrintKeyFramesDialog';
-import type { KeyFramesPrintLayout } from './components/Print/PrintKeyFramesDialog';
+import type { KeyFramesPrintLayout, FramesMode } from './components/Print/PrintKeyFramesDialog';
+import type { Frame } from './types';
 import { useExportKeyFramesPDF } from './hooks/useExportKeyFramesPDF';
 import { CloudStorageAdapter } from './utils/cloudStorage';
 import { JSONFileFormatAdapter } from './utils/fileIO';
@@ -252,12 +253,13 @@ function DrillEditor() {
     }
   };
 
-  const handleExportPDF = async (layout: KeyFramesPrintLayout) => {
-    if (keyFrames.length === 0) return;
+  const handleExportPDF = async (layout: KeyFramesPrintLayout, frames: Frame[], framesMode: FramesMode) => {
+    if (frames.length === 0) return;
     setIsExportingPDF(true);
     try {
       const drillName = drill?.name?.replace(/[^a-zA-Z0-9-_]/g, '-') ?? 'drill';
-      await exportToPDF(keyFrames, layout, `${drillName}-key-frames.pdf`);
+      const suffix = framesMode === 'all' ? 'frames' : 'key-frames';
+      await exportToPDF(frames, layout, `${drillName}-${suffix}.pdf`);
       setShowPrintKeyFramesDialog(false);
     } catch (err) {
       console.error('Failed to export PDF:', err);
@@ -323,7 +325,8 @@ function DrillEditor() {
         isOpen={showPrintKeyFramesDialog}
         onClose={() => setShowPrintKeyFramesDialog(false)}
         onExportPDF={handleExportPDF}
-        keyFrameCount={keyFrames.length}
+        keyFrames={keyFrames}
+        allFrames={drill?.frames ?? []}
         isExporting={isExportingPDF}
       />
     </>

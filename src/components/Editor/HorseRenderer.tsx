@@ -60,7 +60,7 @@ export default function HorseRenderer({
   y,
   isSelected,
   isHighlighted = false,
-  useGaitColor = true,
+  useGaitColor = false,
   scale = 1,
   showArrow,
   onDrag,

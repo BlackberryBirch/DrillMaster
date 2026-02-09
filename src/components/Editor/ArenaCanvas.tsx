@@ -1,5 +1,5 @@
 import React from 'react';
-import { Group, Rect, Line, Text } from 'react-konva';
+import { Group, Rect, Line, Text, Circle } from 'react-konva';
 import { useDrillStore } from '../../stores/drillStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useThemeStore } from '../../stores/themeStore';
@@ -536,6 +536,43 @@ export default function ArenaCanvas({
         />
       ))}
 
+      {/* 5m gate on left - two posts and dashed line */}
+      {(() => {
+        const gateWidthM = 5;
+        const post1 = pointToCanvas({ x: -40, y: -gateWidthM / 2 }, width, height);
+        const post2 = pointToCanvas({ x: -40, y: gateWidthM / 2 }, width, height);
+        const postRadius = 4;
+        return (
+          <>
+            <Circle
+              x={post1.x + postRadius}
+              y={post1.y}
+              radius={postRadius}
+              fill={theme === 'dark' ? '#666666' : '#8B4513'}
+              stroke={theme === 'dark' ? '#888888' : '#654321'}
+              strokeWidth={1}
+              listening={false}
+            />
+            <Circle
+              x={post2.x + postRadius}
+              y={post2.y}
+              radius={postRadius}
+              fill={theme === 'dark' ? '#666666' : '#8B4513'}
+              stroke={theme === 'dark' ? '#888888' : '#654321'}
+              strokeWidth={1}
+              listening={false}
+            />
+            <Line
+              points={[post1.x + postRadius, post1.y, post2.x + postRadius, post2.y]}
+              stroke={gridLineColor}
+              strokeWidth={1}
+              dash={[5, 5]}
+              listening={false}
+            />
+          </>
+        );
+      })()}
+
       {/* Maneuver name - just below the field when this frame is active */}
       {activeFrame?.maneuverName && (
         <Text
@@ -599,7 +636,7 @@ export default function ArenaCanvas({
             y={canvasPos.y}
             isSelected={isSelected}
             isHighlighted={isHighlighted}
-            useGaitColor={!playerMode}
+            useGaitColor={false}
             scale={playerMode ? PLAYER_MODE_HORSE_SCALE : 1}
             showArrow={effectiveShowArrows}
             onDrag={(newX, newY) => handleHorseDragEnd(horse.id, newX, newY)}

@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Stage, Layer, Rect, Line, Text } from 'react-konva';
+import { Stage, Layer, Rect, Line, Text, Circle } from 'react-konva';
 import type Konva from 'konva';
 import { Frame, Horse } from '../../types';
 import { ARENA_LENGTH, ARENA_WIDTH } from '../../constants/arena';
@@ -104,6 +104,42 @@ const KeyFramePrintView = forwardRef<Konva.Stage, KeyFramePrintViewProps>(functi
             ))}
           </>
         )}
+        {/* 5m gate on left - two posts and dashed line */}
+        {(() => {
+          const gateWidthM = 5;
+          const post1 = toCanvas({ x: -40, y: -gateWidthM / 2 }, width, arenaHeight);
+          const post2 = toCanvas({ x: -40, y: gateWidthM / 2 }, width, arenaHeight);
+          const postRadius = 3;
+          return (
+            <>
+              <Circle
+                x={post1.x + postRadius}
+                y={post1.y}
+                radius={postRadius}
+                fill="#8B4513"
+                stroke="#654321"
+                strokeWidth={0.5}
+                listening={false}
+              />
+              <Circle
+                x={post2.x + postRadius}
+                y={post2.y}
+                radius={postRadius}
+                fill="#8B4513"
+                stroke="#654321"
+                strokeWidth={0.5}
+                listening={false}
+              />
+              <Line
+                points={[post1.x + postRadius, post1.y, post2.x + postRadius, post2.y]}
+                stroke={gridColor}
+                strokeWidth={0.5}
+                dash={[4, 4]}
+                listening={false}
+              />
+            </>
+          );
+        })()}
         {/* Horses */}
         {frame.horses.map((horse) => {
           const pos = toCanvas(horse.position, width, arenaHeight);
@@ -115,7 +151,8 @@ const KeyFramePrintView = forwardRef<Konva.Stage, KeyFramePrintViewProps>(functi
               x={pos.x}
               y={pos.y}
               isSelected={false}
-              showArrow={true}
+              showArrow={false}
+              scale={2}
               onDrag={NOOP}
               onClick={NOOP}
               draggable={false}
