@@ -264,9 +264,10 @@ export class FileIO {
     const gzipBlob = await gzipCompress(data);
     const gzipBuf = await new Response(gzipBlob).arrayBuffer();
     const obfuscated = xorBytes(gzipBuf, DRILL_OBFUSCATION_KEY);
+    const obfuscatedCopy = new Uint8Array(obfuscated);
     const full = new Blob([
       DRILL_FILE_MAGIC,
-      obfuscated,
+      obfuscatedCopy,
       DRILL_FILE_FOOTER_MAGIC,
     ]);
     const url = URL.createObjectURL(full);
@@ -316,7 +317,9 @@ export class FileIO {
     const view = new Uint8Array(gzipPayload);
     const isPlainGzip =
       view.length >= 2 && view[0] === GZIP_MAGIC_FIRST && view[1] === GZIP_MAGIC_SECOND;
-    const toDecompress = isPlainGzip ? gzipPayload : xorBytes(gzipPayload, DRILL_OBFUSCATION_KEY).buffer;
+    const toDecompress: ArrayBuffer = isPlainGzip
+      ? gzipPayload
+      : new Uint8Array(xorBytes(gzipPayload, DRILL_OBFUSCATION_KEY)).buffer;
     const data = await gzipDecompress(toDecompress);
     return this.adapter.deserialize(data);
   }
