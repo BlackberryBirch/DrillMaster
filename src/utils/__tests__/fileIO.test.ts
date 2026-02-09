@@ -485,6 +485,38 @@ describe('FileIO', () => {
       expect(result.name).toBe('Test Drill');
       expect(result.frames).toHaveLength(1);
     });
+
+    it('should load .drill file with footer magic (new format)', async () => {
+      const drill = createDrill('test-id', 'Test Drill');
+      const frame = createFrame(generateId(), 0, 0, 5.0);
+      drill.frames = [frame];
+      const fileContent = {
+        version: '1.1.0',
+        format: 'drill-json',
+        drill: {
+          ...drill,
+          metadata: {
+            ...drill.metadata,
+            createdAt: drill.metadata.createdAt.toISOString(),
+            modifiedAt: drill.metadata.modifiedAt.toISOString(),
+          },
+        },
+      };
+      const jsonString = JSON.stringify(fileContent);
+      const gzipBuffer = gzipSync(Buffer.from(jsonString, 'utf-8'));
+      const footerMagic = new Uint8Array([0x52, 0x44, 0x51, 0x45]);
+      const fullBuffer = new Uint8Array(DRILL_FILE_MAGIC.length + gzipBuffer.length + footerMagic.length);
+      fullBuffer.set(DRILL_FILE_MAGIC);
+      fullBuffer.set(gzipBuffer, DRILL_FILE_MAGIC.length);
+      fullBuffer.set(footerMagic, DRILL_FILE_MAGIC.length + gzipBuffer.length);
+      const file = new File([fullBuffer], 'test.drill');
+
+      const result = await fileIO.loadDrill(file);
+
+      expect(result.id).toBe('test-id');
+      expect(result.name).toBe('Test Drill');
+      expect(result.frames).toHaveLength(1);
+    });
   });
 
   describe('setAdapter', () => {

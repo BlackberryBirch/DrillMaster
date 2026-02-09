@@ -76,7 +76,7 @@ describe('VersionHistory', () => {
     });
 
     const shareButton = screen.getByRole('button', { name: /share/i });
-    expect(shareButton).toHaveClass('bg-emerald-600');
+    expect(shareButton).toHaveClass('text-emerald-600');
   });
 
   it('should show Share button with blue style when version has active share link', async () => {
@@ -99,6 +99,6 @@ describe('VersionHistory', () => {
     });
 
     const shareButton = screen.getByRole('button', { name: /share/i });
-    expect(shareButton).toHaveClass('bg-blue-600');
+    expect(shareButton).toHaveClass('text-blue-600');
   });
 });

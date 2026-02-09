@@ -12,7 +12,7 @@ The drill file format is designed to be:
 ## .drill file layout
 
 - **Extension**: `.drill` or `.drill.gz`
-- **Layout**: 4-byte **magic header** (`EQDR` = 0x45 0x51 0x44 0x52) followed by **gzip-compressed** JSON.
+- **Layout**: 4-byte **magic header** (`EQDR`), then **XOR-obfuscated gzip** payload, then 4-byte **footer magic** (`RDQE`). The payload is gzip-compressed JSON XORed with a fixed key so that 7-Zip and other tools do not detect it as gzip. When loading, if the payload starts with the gzip magic (0x1f 0x8b) it is treated as legacy plain gzip; otherwise it is de-XORed then decompressed.
 - **Payload**: After decompression, the content is JSON with the structure below. The `version` field is the **persistence version** (e.g. `1.1.0`) for migration and validation.
 
 ### Payload structure (JSON inside .drill)

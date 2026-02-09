@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Share2, Download, Trash2 } from 'lucide-react';
 import { drillService } from '../../services/drillService';
 import { DrillVersionRecord } from '../../types/database';
 import { Drill } from '../../types/drill';
@@ -253,45 +254,50 @@ export default function VersionHistory({ drillId, isOpen, onClose, onRestore, sh
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {version.version_label != null && version.version_label !== '' && (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        {version.version_label != null && version.version_label !== '' && (
+                          <button
+                            onClick={() => setShareVersion(version)}
+                            className={`p-2 rounded transition-colors ${
+                              shareLinkVersionNumbers.includes(version.version_number)
+                                ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                                : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30'
+                            }`}
+                            title={
+                              shareLinkVersionNumbers.includes(version.version_number)
+                                ? 'View or copy shareable player link'
+                                : 'Get shareable player link'
+                            }
+                            aria-label="Share"
+                          >
+                            <Share2 className="w-4 h-4" aria-hidden />
+                          </button>
+                        )}
                         <button
-                          onClick={() => setShareVersion(version)}
-                          className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                            shareLinkVersionNumbers.includes(version.version_number)
-                              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          }`}
-                          title={
-                            shareLinkVersionNumbers.includes(version.version_number)
-                              ? 'View or copy shareable player link'
-                              : 'Get shareable player link'
-                          }
+                          onClick={() => handleDownload(version)}
+                          className="p-2 rounded transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600"
+                          title="Download as compressed drill file (.drill)"
+                          aria-label="Download"
                         >
-                          Share
+                          <Download className="w-4 h-4" aria-hidden />
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleDownload(version)}
-                        className="px-3 py-1.5 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-                        title="Download as compressed drill file (.drill)"
-                      >
-                        Download
-                      </button>
+                        <button
+                          onClick={() => handleDelete(version.id)}
+                          className="p-2 rounded transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                          title="Delete this version"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" aria-hidden />
+                        </button>
+                      </div>
                       <button
                         onClick={() => handleRestore(version)}
                         disabled={restoring === version.id}
-                        className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        className="w-full sm:w-auto px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                         title="Restore this version"
                       >
                         {restoring === version.id ? 'Restoring...' : 'Restore'}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(version.id)}
-                        className="px-3 py-1.5 text-sm bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
-                        title="Delete this version"
-                      >
-                        Delete
                       </button>
                     </div>
                   </div>

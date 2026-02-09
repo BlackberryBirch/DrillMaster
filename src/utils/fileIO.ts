@@ -154,6 +154,21 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
       };
     }
 
+    // Migrate old files: if no global riderNames, build from per-horse riderName (last wins per label)
+    if (!drill.riderNames || Object.keys(drill.riderNames).length === 0) {
+      const riderNames: Record<string, string> = {};
+      for (const frame of drill.frames ?? []) {
+        for (const horse of frame.horses ?? []) {
+          if (horse.riderName != null && horse.riderName !== '') {
+            riderNames[String(horse.label)] = horse.riderName;
+          }
+        }
+      }
+      if (Object.keys(riderNames).length > 0) {
+        drill = { ...drill, riderNames };
+      }
+    }
+
     return drill;
   }
 
@@ -179,6 +194,24 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
 
 /** Magic bytes at the start of every .drill file (ASCII "EQDR" = Equimotion Drill) */
 export const DRILL_FILE_MAGIC = new Uint8Array([0x45, 0x51, 0x44, 0x52]);
+
+/** Footer magic at the end of every .drill file. */
+const DRILL_FILE_FOOTER_MAGIC = new Uint8Array([0x52, 0x44, 0x51, 0x45]); // "RDQE"
+
+/** Key for XOR obfuscation of the gzip payload so 7-Zip and other tools don't detect gzip. */
+const DRILL_OBFUSCATION_KEY = new Uint8Array([0xa5, 0x51, 0x44, 0x52]);
+
+const GZIP_MAGIC_FIRST = 0x1f;
+const GZIP_MAGIC_SECOND = 0x8b;
+
+function xorBytes(buffer: ArrayBuffer, key: Uint8Array): Uint8Array {
+  const out = new Uint8Array(buffer.byteLength);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < view.length; i++) {
+    out[i] = view[i] ^ key[i % key.length];
+  }
+  return out;
+}
 
 function isDrillFile(file: File): boolean {
   return file.name.toLowerCase().endsWith('.drill') || file.name.toLowerCase().endsWith('.drill.gz');
@@ -238,13 +271,20 @@ export class FileIO {
   }
 
   /**
-   * Save drill as a compressed file (gzip). The file includes the same JSON structure
-   * with version (persistence version), so it is self-describing.
+   * Save drill as a compressed file. Layout: [header magic][XOR-obfuscated gzip][footer magic].
+   * The obfuscation prevents 7-Zip and other decompressors from recognizing the payload as gzip.
    */
   async saveDrillCompressed(drill: Drill, filename?: string): Promise<void> {
     const data = this.adapter.serialize(drill);
-    const blob = await gzipCompress(data);
-    const url = URL.createObjectURL(blob);
+    const gzipBlob = await gzipCompress(data);
+    const gzipBuf = await new Response(gzipBlob).arrayBuffer();
+    const obfuscated = xorBytes(gzipBuf, DRILL_OBFUSCATION_KEY);
+    const full = new Blob([
+      DRILL_FILE_MAGIC,
+      obfuscated,
+      DRILL_FILE_FOOTER_MAGIC,
+    ]);
+    const url = URL.createObjectURL(full);
     const link = document.createElement('a');
     link.href = url;
     link.download = filename || `${drill.name}${this.getCompressedExtension()}`;
@@ -259,6 +299,7 @@ export class FileIO {
       throw new Error('Only .drill files are supported. Use a file with extension .drill or .drill.gz');
     }
     const buffer = await readFileAsArrayBuffer(file);
+    const minLength = DRILL_FILE_MAGIC.length + DRILL_FILE_FOOTER_MAGIC.length;
     if (buffer.byteLength < DRILL_FILE_MAGIC.length) {
       throw new Error('Invalid .drill file: too short');
     }
@@ -268,8 +309,30 @@ export class FileIO {
         throw new Error('Invalid .drill file: missing or incorrect magic header');
       }
     }
-    const gzipPayload = buffer.slice(DRILL_FILE_MAGIC.length);
-    const data = await gzipDecompress(gzipPayload);
+    let gzipPayload: ArrayBuffer;
+    if (buffer.byteLength >= minLength) {
+      const view = new Uint8Array(buffer);
+      const footerStart = buffer.byteLength - DRILL_FILE_FOOTER_MAGIC.length;
+      let hasFooter = true;
+      for (let i = 0; i < DRILL_FILE_FOOTER_MAGIC.length; i++) {
+        if (view[footerStart + i] !== DRILL_FILE_FOOTER_MAGIC[i]) {
+          hasFooter = false;
+          break;
+        }
+      }
+      if (hasFooter) {
+        gzipPayload = buffer.slice(DRILL_FILE_MAGIC.length, footerStart);
+      } else {
+        gzipPayload = buffer.slice(DRILL_FILE_MAGIC.length);
+      }
+    } else {
+      gzipPayload = buffer.slice(DRILL_FILE_MAGIC.length);
+    }
+    const view = new Uint8Array(gzipPayload);
+    const isPlainGzip =
+      view.length >= 2 && view[0] === GZIP_MAGIC_FIRST && view[1] === GZIP_MAGIC_SECOND;
+    const toDecompress = isPlainGzip ? gzipPayload : xorBytes(gzipPayload, DRILL_OBFUSCATION_KEY).buffer;
+    const data = await gzipDecompress(toDecompress);
     return this.adapter.deserialize(data);
   }
 }
