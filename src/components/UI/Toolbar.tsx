@@ -5,7 +5,7 @@ import { useHistoryStore } from '../../stores/historyStore';
 import { useAuthStore } from '../../stores/authStore';
 import AuthButton from '../Auth/AuthButton';
 import Logo from './Logo';
-import { Settings, History, Moon, Sun, Save, Printer } from 'lucide-react';
+import { Settings, History, Moon, Sun, Save, FileDown } from 'lucide-react';
 
 interface ToolbarProps {
   onTogglePropertiesPanel?: () => void;
@@ -109,11 +109,11 @@ export default function Toolbar({ onTogglePropertiesPanel, showPropertiesPanel =
             <button
               onClick={onOpenPrintKeyFrames}
               className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center gap-2"
-              title="Print key frames"
-              aria-label="Print key frames"
+              title="Export key frames to PDF"
+              aria-label="Export key frames to PDF"
             >
-              <Printer className="w-4 h-4 flex-shrink-0" aria-hidden />
-              Print
+              <FileDown className="w-4 h-4 flex-shrink-0" aria-hidden />
+              Export PDF
             </button>
           )}
         </>

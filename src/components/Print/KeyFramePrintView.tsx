@@ -1,9 +1,12 @@
-import { Stage, Layer, Rect, Line, Circle, Text } from 'react-konva';
+import { forwardRef } from 'react';
+import { Stage, Layer, Rect, Line, Text } from 'react-konva';
+import type Konva from 'konva';
 import { Frame } from '../../types';
 import { getGridLines, pointToCanvas } from '../../utils/arena';
-import { GAIT_COLORS } from '../../types/gait';
+import HorseRenderer from '../Editor/HorseRenderer';
 
 const MANEUVER_LABEL_HEIGHT = 22;
+const NOOP = () => {};
 
 interface KeyFramePrintViewProps {
   frame: Frame;
@@ -12,15 +15,18 @@ interface KeyFramePrintViewProps {
   /** Arena fills width x (height - MANEUVER_LABEL_HEIGHT); label below. */
 }
 
-export default function KeyFramePrintView({ frame, width, height }: KeyFramePrintViewProps) {
+const KeyFramePrintView = forwardRef<Konva.Stage, KeyFramePrintViewProps>(function KeyFramePrintView(
+  { frame, width, height },
+  ref
+) {
   const arenaHeight = height - MANEUVER_LABEL_HEIGHT;
   const gridLines = getGridLines();
   const arenaBg = '#F5F5DC';
   const gridColor = '#999999';
 
   return (
-    <Stage width={width} height={height} listening={false}>
-      <Layer>
+    <Stage ref={ref} width={width} height={height} listening={false}>
+      <Layer listening={false}>
         {/* Arena */}
         <Rect
           x={0}
@@ -53,14 +59,18 @@ export default function KeyFramePrintView({ frame, width, height }: KeyFramePrin
         {frame.horses.map((horse) => {
           const pos = pointToCanvas(horse.position, width, arenaHeight);
           return (
-            <Circle
+            <HorseRenderer
               key={horse.id}
+              horse={horse}
               x={pos.x}
               y={pos.y}
-              radius={Math.max(3, Math.min(width, arenaHeight) / 80)}
-              fill={GAIT_COLORS[horse.speed]}
-              stroke="#333"
-              strokeWidth={0.5}
+              isSelected={false}
+              showArrow={true}
+              onDrag={NOOP}
+              onClick={NOOP}
+              draggable={false}
+              canvasWidth={width}
+              canvasHeight={arenaHeight}
             />
           );
         })}
@@ -83,4 +93,6 @@ export default function KeyFramePrintView({ frame, width, height }: KeyFramePrin
       </Layer>
     </Stage>
   );
-}
+});
+
+export default KeyFramePrintView;

@@ -10,8 +10,8 @@ import DrillPlayer from './components/Player/DrillPlayer';
 import VersionHistory from './components/VersionHistory/VersionHistory';
 import SaveVersionDialog from './components/VersionHistory/SaveVersionDialog';
 import PrintKeyFramesDialog from './components/Print/PrintKeyFramesDialog';
-import KeyFramesPrintSheet from './components/Print/KeyFramesPrintSheet';
 import type { KeyFramesPrintLayout } from './components/Print/PrintKeyFramesDialog';
+import { useExportKeyFramesPDF } from './hooks/useExportKeyFramesPDF';
 import { CloudStorageAdapter } from './utils/cloudStorage';
 import { JSONFileFormatAdapter } from './utils/fileIO';
 import { useAutoSave } from './hooks/useAutoSave';
@@ -35,10 +35,10 @@ function DrillEditor() {
   const [showAutoSavedVersions, setShowAutoSavedVersions] = useState(false);
   const [showSaveVersionDialog, setShowSaveVersionDialog] = useState(false);
   const [showPrintKeyFramesDialog, setShowPrintKeyFramesDialog] = useState(false);
-  const [printKeyFramesLayout, setPrintKeyFramesLayout] = useState<KeyFramesPrintLayout | null>(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [databaseDrillId, setDatabaseDrillId] = useState<string | null>(null);
   const [isSavingVersion, setIsSavingVersion] = useState(false);
-  const printLandscapeStyleRef = useRef<HTMLStyleElement | null>(null);
+  const { exportToPDF } = useExportKeyFramesPDF();
 
   const keyFrames = useMemo(
     () => drill?.frames.filter((f) => f.isKeyFrame) ?? [],
@@ -252,42 +252,19 @@ function DrillEditor() {
     }
   };
 
-  const handlePrintKeyFrames = (layout: KeyFramesPrintLayout) => {
-    setPrintKeyFramesLayout(layout);
+  const handleExportPDF = async (layout: KeyFramesPrintLayout) => {
+    if (keyFrames.length === 0) return;
+    setIsExportingPDF(true);
+    try {
+      const drillName = drill?.name?.replace(/[^a-zA-Z0-9-_]/g, '-') ?? 'drill';
+      await exportToPDF(keyFrames, layout, `${drillName}-key-frames.pdf`);
+      setShowPrintKeyFramesDialog(false);
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+    } finally {
+      setIsExportingPDF(false);
+    }
   };
-
-  useEffect(() => {
-    if (!printKeyFramesLayout || keyFrames.length === 0) return;
-
-    const cleanup = () => {
-      setPrintKeyFramesLayout(null);
-      if (printLandscapeStyleRef.current?.parentNode) {
-        printLandscapeStyleRef.current.remove();
-      }
-      printLandscapeStyleRef.current = null;
-    };
-
-    const style = document.createElement('style');
-    style.id = 'print-key-frames-page-orientation';
-    const isLandscape = printKeyFramesLayout === '1-up-landscape';
-    style.textContent = `@media print { @page { size: A4 ${isLandscape ? 'landscape' : 'portrait'}; } }`;
-    document.head.appendChild(style);
-    printLandscapeStyleRef.current = style;
-
-    const doPrint = () => {
-      window.print();
-    };
-
-    window.addEventListener('afterprint', cleanup, { once: true });
-    const t = requestAnimationFrame(() => {
-      requestAnimationFrame(doPrint);
-    });
-
-    return () => {
-      cancelAnimationFrame(t);
-      window.removeEventListener('afterprint', cleanup);
-    };
-  }, [printKeyFramesLayout, keyFrames.length]);
 
   if (loading) {
     return (
@@ -345,34 +322,10 @@ function DrillEditor() {
       <PrintKeyFramesDialog
         isOpen={showPrintKeyFramesDialog}
         onClose={() => setShowPrintKeyFramesDialog(false)}
-        onPrint={handlePrintKeyFrames}
+        onExportPDF={handleExportPDF}
         keyFrameCount={keyFrames.length}
+        isExporting={isExportingPDF}
       />
-      {printKeyFramesLayout && keyFrames.length > 0 && (() => {
-        const n = keyFrames.length;
-        const is1UpLandscape = printKeyFramesLayout === '1-up-landscape';
-        const pages = is1UpLandscape ? n : Math.ceil(n / (printKeyFramesLayout === '2-up-portrait' ? 2 : printKeyFramesLayout === '4-up-portrait' ? 4 : 9));
-        const pageHeightMm = is1UpLandscape ? 210 : 297;
-        const totalHeightMm = pages * pageHeightMm;
-        return (
-        <div
-          className="print-key-frames-root"
-          style={{
-            position: 'fixed',
-            left: '-9999px',
-            top: 0,
-            width: is1UpLandscape ? '297mm' : '210mm',
-            minHeight: is1UpLandscape ? '210mm' : '297mm',
-            height: `${totalHeightMm}mm`,
-            visibility: 'hidden',
-            zIndex: -1,
-          }}
-          aria-hidden
-        >
-          <KeyFramesPrintSheet keyFrames={keyFrames} layout={printKeyFramesLayout} />
-        </div>
-        );
-      })()}
     </>
   );
 }

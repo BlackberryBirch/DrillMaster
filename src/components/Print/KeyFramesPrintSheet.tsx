@@ -2,7 +2,7 @@ import { Frame } from '../../types';
 import KeyFramePrintView from './KeyFramePrintView';
 import type { KeyFramesPrintLayout } from './PrintKeyFramesDialog';
 
-const CARDS_PER_PAGE: Record<KeyFramesPrintLayout, number> = {
+export const CARDS_PER_PAGE: Record<KeyFramesPrintLayout, number> = {
   '1-up-landscape': 1,
   '2-up-portrait': 2,
   '4-up-portrait': 4,
@@ -10,7 +10,7 @@ const CARDS_PER_PAGE: Record<KeyFramesPrintLayout, number> = {
 };
 
 /** Card size in pixels (width, height) per layout for print. */
-const CARD_SIZE: Record<KeyFramesPrintLayout, { width: number; height: number }> = {
+export const CARD_SIZE: Record<KeyFramesPrintLayout, { width: number; height: number }> = {
   '1-up-landscape': { width: 700, height: 400 },
   '2-up-portrait': { width: 400, height: 420 },
   '4-up-portrait': { width: 320, height: 280 },

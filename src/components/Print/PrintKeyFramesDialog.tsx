@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer } from 'lucide-react';
+import { FileDown } from 'lucide-react';
 
 export type KeyFramesPrintLayout = '1-up-landscape' | '2-up-portrait' | '4-up-portrait' | '9-up-portrait';
 
@@ -13,23 +13,24 @@ const LAYOUT_OPTIONS: { value: KeyFramesPrintLayout; label: string }[] = [
 interface PrintKeyFramesDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onPrint: (layout: KeyFramesPrintLayout) => void;
+  onExportPDF: (layout: KeyFramesPrintLayout) => void;
   keyFrameCount: number;
+  isExporting?: boolean;
 }
 
 export default function PrintKeyFramesDialog({
   isOpen,
   onClose,
-  onPrint,
+  onExportPDF,
   keyFrameCount,
+  isExporting = false,
 }: PrintKeyFramesDialogProps) {
   const [layout, setLayout] = useState<KeyFramesPrintLayout>('2-up-portrait');
 
   if (!isOpen) return null;
 
-  const handlePrint = () => {
-    onPrint(layout);
-    onClose();
+  const handleExport = () => {
+    onExportPDF(layout);
   };
 
   return (
@@ -37,8 +38,8 @@ export default function PrintKeyFramesDialog({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 id="print-key-frames-title" className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <Printer className="w-5 h-5" aria-hidden />
-            Print key frames
+            <FileDown className="w-5 h-5" aria-hidden />
+            Export key frames to PDF
           </h2>
           {keyFrameCount === 0 ? (
             <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
@@ -46,7 +47,7 @@ export default function PrintKeyFramesDialog({
             </p>
           ) : (
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              {keyFrameCount} key frame{keyFrameCount !== 1 ? 's' : ''} will be printed.
+              {keyFrameCount} key frame{keyFrameCount !== 1 ? 's' : ''} will be exported to PDF.
             </p>
           )}
         </div>
@@ -79,11 +80,11 @@ export default function PrintKeyFramesDialog({
           </button>
           <button
             type="button"
-            onClick={handlePrint}
-            disabled={keyFrameCount === 0}
+            onClick={handleExport}
+            disabled={keyFrameCount === 0 || isExporting}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Preview
+            {isExporting ? 'Exporting…' : 'Export PDF'}
           </button>
         </div>
       </div>
