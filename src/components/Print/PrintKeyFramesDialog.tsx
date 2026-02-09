@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { FileDown } from 'lucide-react';
 
-export type KeyFramesPrintLayout = '1-up-landscape' | '2-up-portrait' | '4-up-portrait' | '9-up-portrait';
+export type KeyFramesPrintLayout = '1-up-landscape' | '2-up-portrait' | '4-up-portrait' | '9-up-portrait' | '16-up-portrait';
 
 const LAYOUT_OPTIONS: { value: KeyFramesPrintLayout; label: string }[] = [
   { value: '1-up-landscape', label: '1 per page (landscape)' },
   { value: '2-up-portrait', label: '2 per page (portrait)' },
   { value: '4-up-portrait', label: '4 per page (portrait)' },
   { value: '9-up-portrait', label: '9 per page (portrait)' },
+  { value: '16-up-portrait', label: '16 per page (portrait)' },
 ];
 
 interface PrintKeyFramesDialogProps {

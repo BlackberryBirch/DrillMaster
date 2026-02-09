@@ -1,28 +1,52 @@
 import { forwardRef } from 'react';
 import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import type Konva from 'konva';
-import { Frame } from '../../types';
+import { Frame, Horse } from '../../types';
+import { ARENA_LENGTH, ARENA_WIDTH } from '../../constants/arena';
 import { getGridLines, pointToCanvas } from '../../utils/arena';
 import HorseRenderer from '../Editor/HorseRenderer';
 
 const MANEUVER_LABEL_HEIGHT = 22;
 const NOOP = () => {};
 
+/** Convert normalized arena coords to canvas when arena is rotated 90° CCW. */
+function pointToCanvasRotated(
+  point: { x: number; y: number },
+  canvasWidth: number,
+  canvasHeight: number
+): { x: number; y: number } {
+  const normalizedX = (point.x / ARENA_LENGTH) + 0.5;
+  const normalizedY = (point.y / ARENA_WIDTH) + 0.5;
+  return {
+    x: Math.max(0, Math.min(canvasWidth, normalizedY * canvasWidth)),
+    y: Math.max(0, Math.min(canvasHeight, (1 - normalizedX) * canvasHeight)),
+  };
+}
+
+/** Horse with direction rotated 90° CCW for rotated arena view. */
+function withRotatedDirection(horse: Horse): Horse {
+  return { ...horse, direction: horse.direction + Math.PI / 2 };
+}
+
 interface KeyFramePrintViewProps {
   frame: Frame;
   width: number;
   height: number;
+  /** When true, arena is rotated 90° counter-clockwise (for 4/9/16-up). */
+  arenaRotated90CCW?: boolean;
   /** Arena fills width x (height - MANEUVER_LABEL_HEIGHT); label below. */
 }
 
 const KeyFramePrintView = forwardRef<Konva.Stage, KeyFramePrintViewProps>(function KeyFramePrintView(
-  { frame, width, height },
+  { frame, width, height, arenaRotated90CCW = false },
   ref
 ) {
   const arenaHeight = height - MANEUVER_LABEL_HEIGHT;
   const gridLines = getGridLines();
   const arenaBg = '#F5F5DC';
   const gridColor = '#999999';
+
+  const toCanvas = arenaRotated90CCW ? pointToCanvasRotated : pointToCanvas;
 
   return (
     <Stage ref={ref} width={width} height={height} listening={false}>
@@ -37,31 +61,57 @@ const KeyFramePrintView = forwardRef<Konva.Stage, KeyFramePrintViewProps>(functi
           stroke="#CCCCCC"
           strokeWidth={1}
         />
-        {gridLines.vertical.map((ratio, i) => (
-          <Line
-            key={`v-${i}`}
-            points={[width * ratio, 0, width * ratio, arenaHeight]}
-            stroke={gridColor}
-            strokeWidth={0.5}
-            dash={[4, 4]}
-          />
-        ))}
-        {gridLines.horizontal.map((ratio, i) => (
-          <Line
-            key={`h-${i}`}
-            points={[0, arenaHeight * ratio, width, arenaHeight * ratio]}
-            stroke={gridColor}
-            strokeWidth={0.5}
-            dash={[4, 4]}
-          />
-        ))}
+        {arenaRotated90CCW ? (
+          <>
+            {gridLines.vertical.map((ratio, i) => (
+              <Line
+                key={`h-${i}`}
+                points={[0, (1 - ratio) * arenaHeight, width, (1 - ratio) * arenaHeight]}
+                stroke={gridColor}
+                strokeWidth={0.5}
+                dash={[4, 4]}
+              />
+            ))}
+            {gridLines.horizontal.map((ratio, i) => (
+              <Line
+                key={`v-${i}`}
+                points={[width * ratio, 0, width * ratio, arenaHeight]}
+                stroke={gridColor}
+                strokeWidth={0.5}
+                dash={[4, 4]}
+              />
+            ))}
+          </>
+        ) : (
+          <>
+            {gridLines.vertical.map((ratio, i) => (
+              <Line
+                key={`v-${i}`}
+                points={[width * ratio, 0, width * ratio, arenaHeight]}
+                stroke={gridColor}
+                strokeWidth={0.5}
+                dash={[4, 4]}
+              />
+            ))}
+            {gridLines.horizontal.map((ratio, i) => (
+              <Line
+                key={`h-${i}`}
+                points={[0, arenaHeight * ratio, width, arenaHeight * ratio]}
+                stroke={gridColor}
+                strokeWidth={0.5}
+                dash={[4, 4]}
+              />
+            ))}
+          </>
+        )}
         {/* Horses */}
         {frame.horses.map((horse) => {
-          const pos = pointToCanvas(horse.position, width, arenaHeight);
+          const pos = toCanvas(horse.position, width, arenaHeight);
+          const horseToRender = arenaRotated90CCW ? withRotatedDirection(horse) : horse;
           return (
             <HorseRenderer
               key={horse.id}
-              horse={horse}
+              horse={horseToRender}
               x={pos.x}
               y={pos.y}
               isSelected={false}

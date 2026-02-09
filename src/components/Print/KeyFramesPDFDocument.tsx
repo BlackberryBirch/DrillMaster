@@ -49,8 +49,8 @@ export default function KeyFramesPDFDocument({
   const perPage = CARDS_PER_PAGE[layout];
   const pages = chunk(imageDataUrls, perPage);
   const isLandscape = layout === '1-up-landscape';
-  const cols = layout === '1-up-landscape' ? 1 : layout === '2-up-portrait' ? 1 : layout === '4-up-portrait' ? 2 : 3;
-  const rows = layout === '1-up-landscape' ? 1 : layout === '2-up-portrait' ? 2 : layout === '4-up-portrait' ? 2 : 3;
+  const cols = layout === '1-up-landscape' ? 1 : layout === '2-up-portrait' ? 1 : layout === '4-up-portrait' ? 2 : layout === '9-up-portrait' ? 3 : 4;
+  const rows = layout === '1-up-landscape' ? 1 : layout === '2-up-portrait' ? 2 : layout === '4-up-portrait' ? 2 : layout === '9-up-portrait' ? 3 : 4;
 
   return (
     <Document>
