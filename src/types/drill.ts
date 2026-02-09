@@ -14,11 +14,16 @@ export interface AudioTrack {
   filename?: string;
 }
 
+/** Global mapping from horse number (label) to rider name. Applies to all frames. */
+export type RiderNamesByLabel = Record<string, string>;
+
 export interface Drill {
   id: string;
   name: string;
   metadata: DrillMetadata;
   frames: Frame[];
+  /** Horse number (label) → rider name. Global to the whole drill. */
+  riderNames?: RiderNamesByLabel;
   audioTrack?: AudioTrack;
 }
 

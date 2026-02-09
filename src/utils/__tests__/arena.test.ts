@@ -53,29 +53,29 @@ describe('arena utilities', () => {
   describe('calculateArenaDimensions', () => {
     it('should fit arena in container with 20px padding and center when container matches aspect ratio', () => {
       const result = calculateArenaDimensions(400, 200);
-      // 20px padding: available 360x160. Fit 2:1: widthByHeight=320 <= 360 → width=320, height=160
-      expect(result.width).toBe(320);
-      expect(result.height).toBe(160);
-      expect(result.offsetX).toBe(40); // (400 - 320) / 2
-      expect(result.offsetY).toBe(20); // (200 - 160) / 2
+      // 20px top + 60px bottom padding: available 360x120. Fit 2:1: widthByHeight=240 <= 360 → width=240, height=120
+      expect(result.width).toBe(240);
+      expect(result.height).toBe(120);
+      expect(result.offsetX).toBe(80); // (400 - 240) / 2
+      expect(result.offsetY).toBe(20); // PADDING + (120 - 120) / 2
     });
 
     it('should fit arena entirely and center when container is taller (scale by width)', () => {
       const result = calculateArenaDimensions(200, 400);
-      // 20px padding: available 160x360. widthByHeight=720 > 160 → scale by width: width=160, height=80
+      // 20px top + 60px bottom: available 160x320. widthByHeight=640 > 160 → scale by width: width=160, height=80
       expect(result.width).toBe(160);
       expect(result.height).toBe(80);
       expect(result.offsetX).toBe(20); // (200 - 160) / 2
-      expect(result.offsetY).toBe(160); // (400 - 80) / 2
+      expect(result.offsetY).toBe(140); // PADDING + (320 - 80) / 2
     });
 
     it('should fit arena entirely and center when container is wider', () => {
       const result = calculateArenaDimensions(600, 200);
-      // 20px padding: available 560x160. widthByHeight=320 <= 560 → width=320, height=160
-      expect(result.width).toBe(320);
-      expect(result.height).toBe(160);
-      expect(result.offsetX).toBe(140); // (600 - 320) / 2
-      expect(result.offsetY).toBe(20); // (200 - 160) / 2
+      // 20px top + 60px bottom: available 560x120. widthByHeight=240 <= 560 → width=240, height=120
+      expect(result.width).toBe(240);
+      expect(result.height).toBe(120);
+      expect(result.offsetX).toBe(180); // (600 - 240) / 2
+      expect(result.offsetY).toBe(20); // PADDING + (120 - 120) / 2
     });
   });
 

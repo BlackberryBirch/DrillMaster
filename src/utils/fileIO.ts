@@ -154,21 +154,6 @@ export class JSONFileFormatAdapter implements FileFormatAdapter {
       };
     }
 
-    // Migrate old files: if no global riderNames, build from per-horse riderName (last wins per label)
-    if (!drill.riderNames || Object.keys(drill.riderNames).length === 0) {
-      const riderNames: Record<string, string> = {};
-      for (const frame of drill.frames ?? []) {
-        for (const horse of frame.horses ?? []) {
-          if (horse.riderName != null && horse.riderName !== '') {
-            riderNames[String(horse.label)] = horse.riderName;
-          }
-        }
-      }
-      if (Object.keys(riderNames).length > 0) {
-        drill = { ...drill, riderNames };
-      }
-    }
-
     return drill;
   }
 

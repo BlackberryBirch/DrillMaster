@@ -47,11 +47,10 @@ describe('AnimationControls', () => {
   it('should render audio controls', () => {
     render(<AnimationControls />);
     
-    // Audio control shows an emoji button with title "Audio Settings"
-    expect(screen.getByTitle('Audio Settings')).toBeInTheDocument();
-    // The button contains either 🔊 or 🔇 emoji
+    // Audio control shows a button with title "Audio Settings" (uses lucide Volume icon, not emoji)
     const audioButton = screen.getByTitle('Audio Settings');
-    expect(audioButton.textContent).toMatch(/[🔊🔇]/u);
+    expect(audioButton).toBeInTheDocument();
+    expect(audioButton).toHaveAttribute('aria-label', 'Audio settings');
   });
 
   it('should hide audio controls when hideAudio is true', () => {

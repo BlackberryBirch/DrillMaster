@@ -8,9 +8,9 @@ export const GAIT_COLORS: Record<Gait, string> = {
   canter: '#EF4444', // red
 };
 
+/** Relative speed multipliers (e.g. for animation). */
 export const GAIT_SPEEDS: Record<Gait, number> = {
-  walk: 1.0,
-  trot: 2.0,
-  canter: 3.0,
+  walk: 2.0,
+  trot: 4.0,
+  canter: 5.0,
 };
-

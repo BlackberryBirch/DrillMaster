@@ -7,6 +7,7 @@ import { useHistoryStore } from './historyStore';
 import { storageService } from '../services/storageService';
 import { alignHorsesHorizontally, alignHorsesVertically } from '../utils/horseAlignment';
 import { distributeHorsesEvenly, distributeHorsesEvenlyAroundCircle } from '../utils/horseDistribution';
+import { computeDurationFromMovement } from '../utils/frameDuration';
 
 /**
  * Regenerates all frame timestamps based on their durations.
@@ -56,6 +57,9 @@ interface DrillStore {
   // Audio
   setAudioTrack: (url: string, offset?: number, filename?: string, storagePath?: string) => void;
   removeAudioTrack: () => Promise<void>;
+
+  /** Update the global rider name for a horse number (label). Applies to all frames. */
+  updateRiderName: (label: string | number, riderName: string) => void;
   
   // Getters
   getCurrentFrame: () => Frame | null;
@@ -80,12 +84,24 @@ export const useDrillStore = create<DrillStore>()(
       }
     }
     
-    // Regenerate frame timestamps when loading a drill
+    // When loading a drill: normalize speed/speedMultiplier/autoDuration. Only recalc durations
+    // for frames that have autoDuration true (new frames default true; migrated use stored value, default false).
     let drillToSet = drill;
     if (drill && drill.frames && drill.frames.length > 0) {
+      let frames = drill.frames.map((f) => ({
+        ...f,
+        autoDuration: f.autoDuration ?? false,
+        speed: f.speed ?? 'walk',
+        speedMultiplier: f.speedMultiplier ?? 1,
+      }));
+      frames = frames.map((frame, i) => {
+        if (frame.autoDuration !== true) return frame;
+        const next = i + 1 < frames.length ? frames[i + 1] : null;
+        return { ...frame, duration: computeDurationFromMovement(frame, next) };
+      });
       drillToSet = {
         ...drill,
-        frames: regenerateFrameTimestamps(drill.frames),
+        frames: regenerateFrameTimestamps(frames),
       };
     }
     
@@ -226,18 +242,33 @@ export const useDrillStore = create<DrillStore>()(
     const { drill } = get();
     if (!drill) return;
 
-    // Check if duration is being updated
     const isDurationUpdate = 'duration' in updates;
-    
-    // Update the frame
-    const updatedFrames = drill.frames.map((frame) =>
+    const isSpeedUpdate = 'speed' in updates || 'speedMultiplier' in updates;
+    const isAutoDurationEnable = updates.autoDuration === true;
+
+    let updatedFrames = drill.frames.map((frame) =>
       frame.id === frameId ? { ...frame, ...updates } : frame
     );
-    
-    // If duration was updated, regenerate all timestamps
-    const finalFrames = isDurationUpdate 
-      ? regenerateFrameTimestamps(updatedFrames)
-      : updatedFrames;
+
+    let didRecalcDuration = false;
+    // When speed, speedMultiplier, or auto (enabled) changes, recalc this frame's duration from movement
+    if ((isSpeedUpdate || isAutoDurationEnable) && !isDurationUpdate) {
+      const frameIndex = updatedFrames.findIndex((f) => f.id === frameId);
+      const updatedFrame = updatedFrames[frameIndex];
+      if (updatedFrame?.autoDuration === true) {
+        const nextFrame = frameIndex + 1 < updatedFrames.length ? updatedFrames[frameIndex + 1] : null;
+        const newDuration = computeDurationFromMovement(updatedFrame, nextFrame);
+        updatedFrames = updatedFrames.map((f, i) =>
+          i === frameIndex ? { ...f, duration: newDuration } : f
+        );
+        didRecalcDuration = true;
+      }
+    }
+
+    const finalFrames =
+      isDurationUpdate || isSpeedUpdate || didRecalcDuration
+        ? regenerateFrameTimestamps(updatedFrames)
+        : updatedFrames;
 
     set({
       drill: {
@@ -280,7 +311,7 @@ export const useDrillStore = create<DrillStore>()(
     }
 
     // Apply update
-    const newDrill = {
+    let newDrill = {
       ...drill,
       frames: drill.frames.map((f) =>
         f.id === frameId
@@ -293,6 +324,18 @@ export const useDrillStore = create<DrillStore>()(
           : f
       ),
     };
+
+    // Recalc this frame's duration from movement to next frame when auto duration is on
+    const frameIndex = newDrill.frames.findIndex((f) => f.id === frameId);
+    if (frameIndex >= 0 && newDrill.frames[frameIndex].autoDuration === true) {
+      const updatedFrame = newDrill.frames[frameIndex];
+      const nextFrame = frameIndex + 1 < newDrill.frames.length ? newDrill.frames[frameIndex + 1] : null;
+      const newDuration = computeDurationFromMovement(updatedFrame, nextFrame);
+      const framesWithDuration = newDrill.frames.map((f, i) =>
+        i === frameIndex ? { ...f, duration: newDuration } : f
+      );
+      newDrill = { ...newDrill, frames: regenerateFrameTimestamps(framesWithDuration) };
+    }
 
     set({ drill: newDrill });
 
@@ -325,7 +368,7 @@ export const useDrillStore = create<DrillStore>()(
     const previousDrill = JSON.parse(JSON.stringify(drill));
 
     // Apply all updates
-    const newDrill = {
+    let newDrill = {
       ...drill,
       frames: drill.frames.map((f) =>
         f.id === frameId
@@ -339,6 +382,18 @@ export const useDrillStore = create<DrillStore>()(
           : f
       ),
     };
+
+    // Recalc this frame's duration from movement to next frame when auto duration is on
+    const frameIndex = newDrill.frames.findIndex((f) => f.id === frameId);
+    if (frameIndex >= 0 && newDrill.frames[frameIndex].autoDuration === true) {
+      const updatedFrame = newDrill.frames[frameIndex];
+      const nextFrame = frameIndex + 1 < newDrill.frames.length ? newDrill.frames[frameIndex + 1] : null;
+      const newDuration = computeDurationFromMovement(updatedFrame, nextFrame);
+      const framesWithDuration = newDrill.frames.map((f, i) =>
+        i === frameIndex ? { ...f, duration: newDuration } : f
+      );
+      newDrill = { ...newDrill, frames: regenerateFrameTimestamps(framesWithDuration) };
+    }
 
     set({ drill: newDrill });
 
@@ -668,6 +723,24 @@ export const useDrillStore = create<DrillStore>()(
       redo: () => {
         const { setDrill } = get();
         setDrill(newDrillCopy, true, true);
+      },
+    });
+  },
+
+  updateRiderName: (label, riderName) => {
+    const { drill } = get();
+    if (!drill) return;
+    const key = String(label);
+    const prev = drill.riderNames ?? {};
+    const next: Record<string, string> = {};
+    for (const [k, v] of Object.entries(prev)) {
+      if (k !== key && v) next[k] = v;
+    }
+    if (riderName != null && riderName.trim()) next[key] = riderName.trim();
+    set({
+      drill: {
+        ...drill,
+        riderNames: Object.keys(next).length > 0 ? next : undefined,
       },
     });
   },

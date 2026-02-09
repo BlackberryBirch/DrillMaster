@@ -58,7 +58,7 @@ export default function KeyFramesPrintSheet({ keyFrames, layout }: KeyFramesPrin
             minHeight: layout === '2-up-portrait' ? '297mm' : layout === '4-up-portrait' || layout === '9-up-portrait' ? '297mm' : undefined,
           }}
         >
-          {pageFrames.map((frame, i) => (
+          {pageFrames.map((frame) => (
             <div
               key={frame.id}
               className="print-card"

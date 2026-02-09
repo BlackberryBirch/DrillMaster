@@ -309,6 +309,7 @@ describe('FileIO', () => {
   beforeAll(() => {
     if (typeof Blob !== 'undefined' && !Blob.prototype.stream) {
       Blob.prototype.stream = function (this: Blob) {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias -- needed for async callback
         const blob = this;
         return new ReadableStream({
           start(controller: ReadableStreamDefaultController<Uint8Array>) {
@@ -337,7 +338,9 @@ describe('FileIO', () => {
       (globalThis as unknown as { CompressionStream: unknown }).CompressionStream = class CompressionStream {
         readable: ReadableStream<Uint8Array>;
         writable: WritableStream<Uint8Array>;
-        constructor(_format: string) {
+        // Constructor takes format (e.g. 'gzip') but we don't use it in the polyfill
+        /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+        constructor(..._args: [string]) {
           const chunks: Uint8Array[] = [];
           this.writable = new WritableStream({
             write(chunk) {
@@ -363,7 +366,9 @@ describe('FileIO', () => {
       (globalThis as unknown as { DecompressionStream: unknown }).DecompressionStream = class DecompressionStream {
         readable: ReadableStream<Uint8Array>;
         writable: WritableStream<Uint8Array>;
-        constructor(_format: string) {
+        // Constructor takes format (e.g. 'gzip') but we don't use it in the polyfill
+        /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+        constructor(..._args: [string]) {
           const chunks: Uint8Array[] = [];
           this.writable = new WritableStream({
             write(chunk) {
