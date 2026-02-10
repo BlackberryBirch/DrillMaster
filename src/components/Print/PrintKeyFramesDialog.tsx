@@ -10,7 +10,7 @@ const LAYOUT_OPTIONS: { value: KeyFramesPrintLayout; label: string }[] = [
   { value: '1-up-landscape', label: '1 per page (landscape)' },
   { value: '2-up-portrait', label: '2 per page (portrait)' },
   { value: '4-up-portrait', label: '4 per page (portrait)' },
-  { value: '9-up-portrait', label: '9 per page (portrait)' },
+  { value: '9-up-portrait', label: '12 per page (portrait)' },
   { value: '16-up-portrait', label: '16 per page (portrait)' },
 ];
 

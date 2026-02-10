@@ -25,7 +25,7 @@ function pointToCanvasRotated(
 
 /** Horse with direction rotated 90° CCW for rotated arena view. */
 function withRotatedDirection(horse: Horse): Horse {
-  return { ...horse, direction: horse.direction + Math.PI / 2 };
+  return { ...horse, direction: horse.direction - Math.PI / 2 };
 }
 
 interface KeyFramePrintViewProps {
@@ -152,7 +152,9 @@ const KeyFramePrintView = forwardRef<Konva.Stage, KeyFramePrintViewProps>(functi
               y={pos.y}
               isSelected={false}
               showArrow={false}
-              scale={2}
+              scale={3}
+              labelScale={3}
+              labelColor="#000000"
               onDrag={NOOP}
               onClick={NOOP}
               draggable={false}

@@ -20,7 +20,7 @@ function getGridConfig(layout: KeyFramesPrintLayout) {
   if (layout === '1-up-landscape') return { cols: '1fr', rows: '1fr' };
   if (layout === '2-up-portrait') return { cols: '1fr', rows: '1fr 1fr' };
   if (layout === '4-up-portrait') return { cols: '1fr 1fr', rows: '1fr 1fr' };
-  if (layout === '9-up-portrait') return { cols: '1fr 1fr 1fr', rows: '1fr 1fr 1fr' };
+  if (layout === '9-up-portrait') return { cols: '1fr 1fr 1fr 1fr', rows: '1fr 1fr 1fr' };
   return { cols: '1fr 1fr 1fr 1fr', rows: '1fr 1fr 1fr 1fr' };
 }
 

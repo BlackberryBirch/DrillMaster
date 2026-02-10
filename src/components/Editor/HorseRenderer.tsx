@@ -40,6 +40,10 @@ interface HorseRendererProps {
   useGaitColor?: boolean;
   /** Scale factor for horse and label size (e.g. 1.5 = 50% larger). Default 1 */
   scale?: number;
+  /** Scale factor for label (number) only. Default 1 */
+  labelScale?: number;
+  /** Override label text color. Default uses HORSE_LABEL.TEXT_COLOR */
+  labelColor?: string;
   showArrow: boolean;
   onDrag: (x: number, y: number) => void;
   onDragStart?: () => void;
@@ -62,6 +66,8 @@ export default function HorseRenderer({
   isHighlighted = false,
   useGaitColor = false,
   scale = 1,
+  labelScale = 1,
+  labelColor,
   showArrow,
   onDrag,
   onDragStart,
@@ -297,18 +303,18 @@ export default function HorseRenderer({
       {/* Horse Label - centered on the horse body */}
       <Text
         text={String(horse.label)}
-        fontSize={Math.max(HORSE_LABEL.MIN_FONT_SIZE, Math.min(HORSE_LABEL.MAX_FONT_SIZE, effectiveHorseWidth * HORSE_LABEL.WIDTH_RATIO))}
+        fontSize={Math.max(HORSE_LABEL.MIN_FONT_SIZE, Math.min(HORSE_LABEL.MAX_FONT_SIZE, effectiveHorseWidth * HORSE_LABEL.WIDTH_RATIO)) * labelScale}
         fontStyle="bold"
-        fill={HORSE_LABEL.TEXT_COLOR}
+        fill={labelColor ?? HORSE_LABEL.TEXT_COLOR}
         align="center"
         verticalAlign="middle"
         x={0}
         y={0}
-        width={effectiveHorseWidth * HORSE_LABEL.WIDTH_RATIO}
-        height={effectiveHorseWidth * HORSE_LABEL.HEIGHT_RATIO}
+        width={effectiveHorseWidth * HORSE_LABEL.WIDTH_RATIO * labelScale}
+        height={effectiveHorseWidth * HORSE_LABEL.HEIGHT_RATIO * labelScale}
         rotation={-rotationDegrees}
-        offsetX={effectiveHorseWidth * (HORSE_LABEL.WIDTH_RATIO / 2)}
-        offsetY={effectiveHorseWidth * (HORSE_LABEL.HEIGHT_RATIO / 2)}
+        offsetX={(effectiveHorseWidth * HORSE_LABEL.WIDTH_RATIO * labelScale) / 2}
+        offsetY={(effectiveHorseWidth * HORSE_LABEL.HEIGHT_RATIO * labelScale) / 2}
       />
 
       {/* Direction Arrow */}
